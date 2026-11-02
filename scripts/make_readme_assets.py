@@ -360,6 +360,38 @@ def basel_chart(res, t, theme):
     save(fig, "basel", theme)
 
 
+def strategies_chart(res, t, theme):
+    """Growth of $1 and rolling 21-day volatility: buy & hold vs vol targeting."""
+    if res.strategies is None:
+        return
+    d = res.strategies
+    target = res.info["strategy"]["target_vol"]
+    spec = (("buy_hold", t["muted"], 1.3, "Buy & hold"),
+            ("vt_ewma", t["series"][1], 1.4, "Vol target · EWMA"),
+            ("vt_conformal", t["series"][0], 2.0,
+             "Vol target · conformal upper bound"))  # fmt: skip
+    fig, (a1, a2) = plt.subplots(2, 1, figsize=(9.6, 5.4), sharex=True,
+                                 gridspec_kw={"height_ratios": [3, 2], "hspace": 0.35})  # fmt: skip
+    for n, color, lw, name in spec:
+        r = d[f"{n}_net"].fillna(0)
+        wealth = (1 + r).cumprod()
+        a1.plot(d.index, wealth, color=color, lw=lw, label=name)
+        a2.plot(d.index, r.rolling(21).std() * np.sqrt(252), color=color, lw=lw * 0.8)
+    a2.axhline(target, color=t["ink2"], linestyle=(0, (4, 3)), lw=1)
+    a2.text(d.index[-1], target, f" target {target:.0%}", color=t["ink2"], fontsize=8.5,
+            va="bottom", ha="right")  # fmt: skip
+    a2.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1, decimals=0))
+    a1.yaxis.set_major_formatter(matplotlib.ticker.FuncFormatter(lambda v, _: f"${v:.2f}"))
+    leg = a1.legend(loc="upper left", frameon=False, fontsize=9)
+    for txt in leg.get_texts():
+        txt.set_color(t["ink2"])
+    style(a1, t, "Putting it to work: sizing a portfolio with calibrated risk",
+          "Growth of $1 after 5 bp costs, 2020–2026. Each rule sets tomorrow's exposure at "
+          "today's close.")  # fmt: skip
+    style(a2, t, ylabel="21-day vol")
+    save(fig, "strategies", theme)
+
+
 def main():
     res = BacktestResult.load(REPORTS / "default")
     metrics = compute_metrics(res)
@@ -372,6 +404,7 @@ def main():
         slm_chart(t, theme)
         intervals_2020(res, t, theme)
         basel_chart(res, t, theme)
+        strategies_chart(res, t, theme)
     print(f"wrote {len(list(OUT.glob('*.svg')))} files to {OUT}")
 
 

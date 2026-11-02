@@ -119,7 +119,9 @@ class BacktestResult:
     basel: pd.DataFrame | None = None  # <m>_exceptions, <m>_multiplier, <m>_capital
     contrib: pd.DataFrame | None = None  # per-asset share of portfolio risk
 
-    _EXTRA = ("es", "var_long", "basel", "contrib")
+    strategies: pd.DataFrame | None = None  # <name>_exp / _gross / _net / _turnover per day
+
+    _EXTRA = ("es", "var_long", "basel", "contrib", "strategies")
 
     def save(self, out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -310,6 +312,11 @@ def run_backtest(
     rc = risk_contributions(engine_cov, next_w.to_numpy())
     contrib = pd.DataFrame(rc, index=m.returns.index, columns=m.returns.columns).loc[sp.test]
 
+    with timer.stage("strategies"):
+        strategies, strat_info = _strategies(
+            cfg, m, X, sp, model, f_cal, y_cal, vol, var, engine_cov
+        )
+
     info = {
         "aegis_version": __version__,
         "created": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
@@ -339,6 +346,7 @@ def run_backtest(
         + [n for n in c.methods if n != "one_sided_var"],
         "latency": timer.summary(),
     }
+    info["strategy"] = strat_info
     info["risk_measures"] = {
         "es_alpha": c.es_alpha,
         "long_horizon": c.long_horizon,
@@ -355,6 +363,7 @@ def run_backtest(
         var_long=var_long,
         basel=basel,
         contrib=contrib,
+        strategies=strategies,
     )
 
 
@@ -428,3 +437,90 @@ def _basel(var99: pd.DataFrame, var_long: pd.DataFrame, window: int) -> pd.DataF
         out[f"{key}_capital"] = market_risk_capital(var_long[key].reindex(out.index),
                                                     tl["multiplier"])  # fmt: skip
     return out
+
+
+def _strategies(cfg, m, X, sp, model, f_cal, y_cal, vol, var, engine_cov):
+    """Position-sizing rules on the test period (V2).
+
+    * buy & hold: the equal-weight portfolio at exposure 1
+    * vol targeting with three sizing inputs: EWMA vol, the point forecast, and the conformal
+      upper bound (split conformal on the calibration period, ACI on the test period)
+    * VaR limit: size so the forecast 99% VaR equals a loss limit (conformal vs Gaussian VaR)
+    * allocations: equal-weight, inverse-vol and equal-risk-contribution, each vol-targeted
+      with the engine covariance
+
+    Every vol-targeting rule gets a scale constant fitted on the calibration period only, so all
+    rules aim at the same realized volatility before the test period starts.
+    """
+    from aegis.conformal_ncm import AbsoluteResidual
+    from aegis.portfolio import (
+        allocation_returns,
+        calibrate_scale,
+        erc_weights,
+        inverse_vol_weights,
+        run_exposure,
+        simple_returns,
+        var_limit_exposure,
+        vol_target_exposure,
+    )
+
+    s = cfg.strategy
+    port = simple_returns(m.portfolio)
+    test, cal = sp.test, sp.cal
+    results: dict[str, object] = {}
+    scales: dict[str, float] = {}
+
+    # Daily-vol sizing inputs on calibration and test dates.
+    q_cal = SplitConformal(AbsoluteResidual(), cfg.conformal.alpha).fit(f_cal, y_cal).q
+    upper_test = vol["aci_hi"] if "aci_hi" in vol else vol["split_absolute_hi"]
+    inputs = {
+        "vt_ewma": np.exp(X["log_ewma_vol"]),
+        "vt_point": pd.concat([pd.Series(np.exp(f_cal.mu), index=cal), np.exp(vol["mu"])]),
+        "vt_conformal": pd.concat(
+            [pd.Series(np.exp(f_cal.mu + q_cal), index=cal), np.exp(upper_test)]
+        ),
+    }
+    results["buy_hold"] = run_exposure(port, pd.Series(1.0, index=test), s.cost_bps)
+    for name, sig in inputs.items():
+        k = calibrate_scale(port, sig.loc[cal], s.target_vol, s.max_leverage)
+        scales[name] = k
+        expo = vol_target_exposure(sig.loc[test], s.target_vol, k, s.max_leverage)
+        results[name] = run_exposure(port, expo, s.cost_bps)
+
+    if 0.01 in var:
+        for name, col in (
+            ("var_limit_conformal", "aci_var"),
+            ("var_limit_gaussian", "gaussian_var"),
+        ):
+            expo = var_limit_exposure(var[0.01][col], s.var_limit, s.max_leverage)
+            results[name] = run_exposure(port, expo, s.cost_bps)
+
+    # Allocations from the engine covariance (decided at the close of t).
+    span = cal.union(test)
+    pos = m.returns.index.get_indexer(span)
+    cov = engine_cov[pos]
+    n = m.returns.shape[1]
+    weights = {
+        "alloc_equal": np.full((len(span), n), 1.0 / n),
+        "alloc_invvol": inverse_vol_weights(cov),
+        "alloc_erc": erc_weights(cov),
+    }
+    for name, w in weights.items():
+        wdf = pd.DataFrame(w, index=span, columns=m.returns.columns)
+        port_a, w_turn = allocation_returns(m.returns, wdf)
+        sigma_p = pd.Series(np.sqrt(np.einsum("ti,tij,tj->t", w, cov, w)), index=span)
+        k = calibrate_scale(port_a, sigma_p.loc[cal], s.target_vol, s.max_leverage)
+        scales[name] = k
+        expo = vol_target_exposure(sigma_p.loc[test], s.target_vol, k, s.max_leverage)
+        results[name] = run_exposure(port_a, expo, s.cost_bps,
+                                     extra_turnover=w_turn.loc[test] * expo)  # fmt: skip
+
+    cols = {}
+    for name, r in results.items():
+        cols[f"{name}_exp"] = r.exposure
+        cols[f"{name}_gross"] = r.gross
+        cols[f"{name}_net"] = r.net
+        cols[f"{name}_turnover"] = r.turnover
+    df = pd.DataFrame(cols, index=test)
+    info = {"names": list(results), "scales": scales, **cfg.strategy.model_dump()}
+    return df, info

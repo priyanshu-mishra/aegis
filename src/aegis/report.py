@@ -167,6 +167,30 @@ def basel_metrics(df: pd.DataFrame) -> dict:
     return out
 
 
+STRATEGY_LABELS = {
+    "buy_hold": "Buy & hold (equal weight)",
+    "vt_ewma": "Vol target · EWMA vol", "vt_point": "Vol target · point forecast",
+    "vt_conformal": "Vol target · conformal upper bound",
+    "var_limit_conformal": "VaR limit · conformal VaR",
+    "var_limit_gaussian": "VaR limit · Gaussian VaR",
+    "alloc_equal": "Equal weight · vol target", "alloc_invvol": "Inverse vol · vol target",
+    "alloc_erc": "Risk parity (ERC) · vol target",
+}  # fmt: skip
+
+
+def strategy_table(res: BacktestResult) -> dict:
+    from aegis.portfolio import StrategyResult, strategy_metrics
+
+    d, si = res.strategies, res.info["strategy"]
+    out = {}
+    for n in si["names"]:
+        sr = StrategyResult(d[f"{n}_exp"], d[f"{n}_gross"], d[f"{n}_net"], d[f"{n}_turnover"])
+        mm = strategy_metrics(sr, si["target_vol"], si["overshoot_window"], si["overshoot_mult"])
+        mm["limit_breach_rate"] = float((d[f"{n}_net"].dropna() < -si["var_limit"]).mean())
+        out[n] = mm
+    return out
+
+
 def compute_metrics(res: BacktestResult) -> dict:
     info = res.info
     out = {
@@ -181,6 +205,8 @@ def compute_metrics(res: BacktestResult) -> dict:
         out["var_long"] = long_var_metrics(res.var_long, rm["long_alpha"], rm["long_horizon"])
     if res.basel is not None:
         out["basel"] = basel_metrics(res.basel)
+    if res.strategies is not None:
+        out["strategies"] = strategy_table(res)
     if res.contrib is not None:
         c = res.contrib
         out["contrib"] = {"mean": c.mean().to_dict(), "min": c.min().to_dict(),
@@ -344,6 +370,28 @@ def make_figures(res: BacktestResult, metrics: dict, out_dir: Path) -> dict[str,
         fig.tight_layout()
         files["basel"] = "figures/basel.png"
         fig.savefig(out_dir / files["basel"], dpi=140)
+        plt.close(fig)
+
+    # 8. Strategies: growth of $1 and rolling volatility for the vol-targeting rules.
+    if res.strategies is not None:
+        d = res.strategies
+        names = [n for n in ("buy_hold", "vt_ewma", "vt_conformal") if f"{n}_net" in d]
+        fig, (a1, a2) = plt.subplots(2, 1, figsize=(10, 5.6), sharex=True,
+                                     gridspec_kw={"height_ratios": [3, 2]})  # fmt: skip
+        colors = {"buy_hold": MUTED, "vt_ewma": SERIES[1], "vt_conformal": SERIES[0]}
+        target = res.info["strategy"]["target_vol"]
+        for n in names:
+            r = d[f"{n}_net"].fillna(0)
+            a1.plot(d.index, (1 + r).cumprod(), color=colors[n], lw=1.6, label=STRATEGY_LABELS[n])
+            a2.plot(d.index, r.rolling(21).std() * np.sqrt(252), color=colors[n], lw=1.2)
+        a2.axhline(target, color=INK_2, ls="--", lw=1)
+        a2.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1, decimals=0))
+        _style(a1, "Growth of $1 after costs", "wealth")
+        _style(a2, f"Rolling 21-day volatility (target {target:.0%})", "ann. vol")
+        a1.legend(loc="upper left", fontsize=8, frameon=False)
+        fig.tight_layout()
+        files["strategies"] = "figures/strategies.png"
+        fig.savefig(out_dir / files["strategies"], dpi=140)
         plt.close(fig)
 
     # 7. Risk decomposition: signed share of portfolio risk by asset. Shares sum to 100% but can
@@ -550,6 +598,30 @@ def _risk_measures_markdown(res: BacktestResult, metrics: dict, figures: dict) -
                               tablefmt="pipe", disable_numparse=True))  # fmt: skip
         if "basel" in figures:
             lines += ["", f"![Basel traffic light]({figures['basel']})"]
+
+    if "strategies" in metrics:
+        si = res.info["strategy"]
+        lines += ["", "## Putting it to work: position sizing", "",
+                  f"Each rule sets the next day's exposure at today's close. Vol-targeting rules "
+                  f"aim at {si['target_vol']:.0%} annualized volatility with a scale fitted on "
+                  "the calibration period only (max leverage "
+                  f"{si['max_leverage']:g}×); VaR-limit rules size so the forecast 99% VaR equals "
+                  f"a {si['var_limit']:.0%} daily loss limit. Costs: {si['cost_bps']:g} bp per "
+                  f"unit of turnover. Overshoot = share of {si['overshoot_window']}-day windows "
+                  f"with realized vol above {si['overshoot_mult']:g}× target.", ""]  # fmt: skip
+        rows = []
+        for n, v in metrics["strategies"].items():
+            rows.append([STRATEGY_LABELS.get(n, n), _pct(v["ann_return"]), _pct(v["ann_vol"]),
+                         f"{v['sharpe']:.2f}", _pct(v["max_drawdown"]),
+                         _pct(v["overshoot_share"]), _pct(v["limit_breach_rate"], 2),
+                         f"{v['avg_exposure']:.2f}", f"{v['annual_turnover']:.1f}",
+                         _pct(v["cost_drag"], 2)])  # fmt: skip
+        lines.append(tabulate(rows, headers=["Strategy", "Return", "Vol", "Sharpe", "Max DD",
+                                             "Overshoot", f"Days loss > {si['var_limit']:.0%}",
+                                             "Avg exposure", "Turnover/yr", "Cost/yr"],
+                              tablefmt="pipe", disable_numparse=True))  # fmt: skip
+        if "strategies" in figures:
+            lines += ["", f"![Strategies]({figures['strategies']})"]
 
     if "contrib" in metrics:
         c = metrics["contrib"]

@@ -80,6 +80,11 @@ def test_backtest_outputs(result):
     assert {"split", "rolling", "aci", "gaussian", "hist", "garch"} <= set(result.var_long.columns)
     assert np.isfinite(result.var_long[["split", "rolling", "aci"]].to_numpy()).all()
     assert result.contrib.sum(axis=1).to_numpy() == pytest.approx(1.0)
+    names = result.info["strategy"]["names"]
+    assert {"buy_hold", "vt_ewma", "vt_point", "vt_conformal", "alloc_erc"} <= set(names)
+    for n in names:
+        assert {f"{n}_exp", f"{n}_net"} <= set(result.strategies.columns)
+    assert (result.strategies.filter(like="vt_").filter(like="_exp") <= 2.0 + 1e-12).all().all()
     assert info["latency"]["score_one_day"]["calls"] > 0
     assert vol.index[0] > pd.Timestamp("2013-12-31")
 
@@ -112,6 +117,9 @@ def test_backtest_has_no_lookahead():
         fa, fb = getattr(a, name), getattr(b, name)
         cols = [c for c in fa.columns if c != outcome]
         pd.testing.assert_frame_equal(fa.loc[:t, cols], fb.loc[:t, cols])
+    # Strategy exposures are decided at each close; their returns are realized the next day.
+    exp_cols = [c for c in a.strategies.columns if c.endswith("_exp")]
+    pd.testing.assert_frame_equal(a.strategies.loc[:t, exp_cols], b.strategies.loc[:t, exp_cols])
     # Sanity: the perturbation does change later outputs.
     assert not a.vol.loc[a.vol.index > t].equals(b.vol.loc[b.vol.index > t])
 
@@ -120,7 +128,7 @@ def test_save_load_roundtrip(result, tmp_path):
     result.save(tmp_path)
     back = BacktestResult.load(tmp_path)
     pd.testing.assert_frame_equal(back.vol, result.vol, check_freq=False)
-    for name in ("es", "var_long", "basel", "contrib"):
+    for name in ("es", "var_long", "basel", "contrib", "strategies"):
         pd.testing.assert_frame_equal(getattr(back, name), getattr(result, name), check_freq=False)
     for a in result.var:
         pd.testing.assert_frame_equal(back.var[a], result.var[a], check_freq=False)
@@ -133,7 +141,8 @@ def test_report_files_and_tables(result, tmp_path):
     md = path.read_text()
     metrics = json.loads((tmp_path / "metrics.json").read_text())
     assert set(metrics["vol"]) == set(result.info["vol_methods"])
-    assert {"es", "var_long", "basel", "contrib"} <= set(metrics)
+    assert {"es", "var_long", "basel", "contrib", "strategies"} <= set(metrics)
+    assert "## Putting it to work" in md
     for heading in ("## Expected Shortfall", "-day 99% VaR", "## Basel traffic light",
                     "## Risk decomposition"):  # fmt: skip
         assert heading in md

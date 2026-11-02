@@ -135,6 +135,17 @@ class ConformalConfig(_Strict):
         return v
 
 
+class StrategyConfig(_Strict):
+    """Portfolio rules that turn risk forecasts into position sizes (V2)."""
+
+    target_vol: float = Field(0.10, gt=0, description="Annualized volatility target")
+    max_leverage: float = Field(2.0, gt=0)
+    cost_bps: float = Field(5.0, ge=0, description="Cost per unit of turnover, basis points")
+    var_limit: float = Field(0.02, gt=0, description="Daily 99% VaR limit, fraction of capital")
+    overshoot_window: int = Field(21, ge=5)
+    overshoot_mult: float = Field(1.25, gt=1)
+
+
 class ReportConfig(_Strict):
     output_dir: Path = Path("reports")
     figures: bool = True
@@ -149,6 +160,7 @@ class AegisConfig(_Strict):
     parser: ParserConfig = Field(default_factory=ParserConfig)
     risk: RiskConfig = Field(default_factory=RiskConfig)
     conformal: ConformalConfig = Field(default_factory=ConformalConfig)
+    strategy: StrategyConfig = Field(default_factory=StrategyConfig)
     report: ReportConfig = Field(default_factory=ReportConfig)
 
     @model_validator(mode="after")

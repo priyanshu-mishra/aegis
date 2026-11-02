@@ -40,6 +40,8 @@ def test_dashboard_renders_every_view(tmp_path, monkeypatch):
     at = AppTest.from_file(str(ROOT / "dashboard/app.py"), default_timeout=60).run()
     assert not at.exception, at.exception
     assert at.title[0].value == "Aegis · demo"
-    for view in ("Coverage", "VaR", "Text ablation", "Latency"):
+    views = at.segmented_control[0].options
+    assert {"Risk measures", "Portfolio"} <= set(views)  # every view must be reachable
+    for view in views:
         at.segmented_control[0].set_value(view).run()
         assert not at.exception, (view, at.exception)

@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 152 offline" src="https://img.shields.io/badge/tests-152%20offline-1baf7a">
+  <img alt="Tests: 158 offline" src="https://img.shields.io/badge/tests-158%20offline-1baf7a">
   <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
 </p>
@@ -16,6 +16,7 @@
 
 - **Textbook conformal prediction under-covers on real markets.** Split conformal reaches 93.3% instead of 95%, and 88.9% in 2020, because markets are not exchangeable. **Adaptive Conformal Inference (ACI) recovers 95.0%**, including 94.5% through the COVID year.
 - **Conformal VaR fixes the 99% tail and keeps a bank's model in the green zone.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–0.99% of days against a 1% target and stays in the Basel green zone 94–99% of the time, against 56% for RiskMetrics. The trade-off is honest: being right costs more capital (22–31% vs 18%).
+- **Calibrated risk makes better position sizes.** Sizing on the conformal upper bound halves the maximum drawdown of buy & hold (−30% → −13.6%) and lifts Sharpe from 0.75 to 0.97. A 2% daily loss limit set with conformal VaR is breached on 0.82% of days against a 1% target; set with Gaussian VaR, on 1.81%.
 - **Text did not beat prices on real data, and the ablation shows why.** In a synthetic world with a known signal, text only helps when headlines are close to noise-free. Fixing the SLM's schema took its sign accuracy from 70% to 100%, but about eight FOMC statements a year is too sparse a signal.
 
 ---
@@ -149,6 +150,36 @@ Conformal methods spend 94–99% of days in the green zone, against 56% for Risk
 
 **Where the risk comes from.** An Euler decomposition of the engine's covariance shows oil (USO) carrying on average **57% of the portfolio's risk with 25% of its weight**, peaking above 100% when Treasuries act as a hedge and take a negative share.
 
+### Putting it to work: position sizing
+
+A risk forecast earns its keep when it changes a decision. Each rule below sets tomorrow's exposure at today's close, pays 5 bp per unit of turnover, and is evaluated on 2020–2026.
+
+- **Volatility targeting** scales exposure to aim for 10% annualized volatility. Each sizing input (EWMA vol, the point forecast, or the conformal upper bound) gets one scaling constant, fitted on 2018–2019 only.
+- **VaR limits** size the position so the forecast 99% VaR equals a 2% daily loss limit.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/strategies-dark.svg">
+  <img alt="Growth of $1 and rolling volatility: buy and hold vs vol targeting" src="docs/assets/strategies-light.svg" width="100%">
+</picture>
+
+| Strategy | Return | Vol | Sharpe | Max drawdown | Vol overshoot | Days loss > 2% |
+|---|---|---|---|---|---|---|
+| Buy & hold (equal weight) | 10.8% | 14.3% | 0.75 | -30.2% | 35.4% | 1.81% |
+| Vol target · EWMA vol | 9.5% | 10.1% | 0.94 | -15.2% | 11.0% | 0.70% |
+| Vol target · point forecast | 10.0% | 10.3% | 0.97 | -15.3% | 12.8% | 0.47% |
+| **Vol target · conformal upper bound** | 9.5% | 9.7% | 0.97 | -13.6% | 10.7% | 0.35% |
+| VaR limit · conformal VaR | 10.2% | 11.8% | 0.87 | -16.6% | 33.2% | 0.82% |
+| VaR limit · Gaussian VaR | 13.6% | 14.4% | 0.94 | -21.1% | 68.3% | 1.81% |
+| Risk parity (ERC) · vol target | 8.9% | 11.0% | 0.82 | -17.0% | 18.0% | 1.17% |
+
+*Vol overshoot* is the share of 21-day windows in which realized volatility ran above 1.25 × target.
+
+How to read it:
+- **Vol targeting is the big win.** It halves the drawdown and the overshoot rate.
+- **Sizing on the conformal upper bound adds a small but consistent edge:** the shallowest drawdown, the fewest overshoots, and the lowest worst-case volatility.
+- **For risk limits, calibration decides compliance.** A limit set with Gaussian VaR is breached almost twice as often as it is meant to be. Gaussian VaR earns more return only because it runs more risk (average exposure 1.19).
+- **Risk parity didn't help here.** It moves weight from oil (14% on average) to Treasuries (34%) and more than doubles turnover; the full report includes the inverse-vol allocation as well.
+
 ### What didn't work
 
 Volatility-scaled (normalized) intervals and conformalized quantile regression (CQR) never beat the plain absolute residual (Winkler interval score 2.162, lower is better, vs 2.277 and 2.301). The target is log volatility, and taking the log already makes residuals about the same size in calm and stressed periods, so a scale model mostly adds noise. The online methods therefore default to the absolute score, which improved ACI from Winkler 2.320 to 2.212.
@@ -269,6 +300,7 @@ src/aegis/
   conformal_ncm.py         non-conformity scores · split / rolling / ACI · walk-forward runner
   baselines.py             Gaussian, historical-simulation and GARCH VaR / ES, multi-day GARCH
   risk_measures.py         Expected Shortfall · Acerbi–Székely Z2 · Basel traffic light · capital · Euler
+  portfolio.py             vol targeting · VaR limits · risk parity (ERC) · costs · performance metrics
   metrics.py               coverage · Winkler · Kupiec · Christoffersen
   backtest.py              splits with embargo · walk-forward run for both targets
   report.py                metrics.json · figures · markdown report
@@ -276,7 +308,7 @@ src/aegis/
 dashboard/app.py           Streamlit dashboard over reports/*
 scripts/                   make_readme_assets.py: regenerates every chart in this README
 docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
-tests/                     152 offline tests + network and live-SLM tests
+tests/                     158 offline tests + network and live-SLM tests
 ```
 
 </details>

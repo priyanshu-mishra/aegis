@@ -74,7 +74,7 @@ cols[3].caption(LABELS.get(best, best))
 view = (
     st.segmented_control(
         "View",
-        ["Intervals", "Coverage", "VaR", "Text ablation", "Latency"],
+        ["Intervals", "Coverage", "VaR", "Risk measures", "Portfolio", "Text ablation", "Latency"],
         default="Intervals",
         label_visibility="collapsed",
     )
@@ -278,6 +278,48 @@ if view == "Risk measures":
                                 legend=alt.Legend(orient="bottom", title=None)),
                 tooltip=["date:T", "asset:N", alt.Tooltip("share:Q", format=".1%")],
             ).properties(height=280), width="stretch")  # fmt: skip
+
+# ---- Portfolio (position sizing) --------------------------------------------------------
+if view == "Portfolio":
+    from aegis.report import STRATEGY_LABELS
+
+    if "strategies" not in metrics:
+        st.info("This run predates the portfolio extension; re-run `backtest`.")
+    else:
+        si = info["strategy"]
+        st.markdown(f"Exposure is set at each close; vol-target rules aim at "
+                    f"**{si['target_vol']:.0%}** volatility, VaR-limit rules keep the forecast "
+                    f"99% VaR at **{si['var_limit']:.0%}** of capital. Costs "
+                    f"{si['cost_bps']:g} bp per unit of turnover.")  # fmt: skip
+        tbl = pd.DataFrame([{"Strategy": STRATEGY_LABELS.get(k, k), "Return": v["ann_return"],
+                             "Vol": v["ann_vol"], "Sharpe": v["sharpe"],
+                             "Max DD": v["max_drawdown"], "Overshoot": v["overshoot_share"],
+                             "Days loss > limit": v["limit_breach_rate"],
+                             "Avg exposure": v["avg_exposure"]}
+                            for k, v in metrics["strategies"].items()])  # fmt: skip
+        tbl = tbl.set_index("Strategy")
+        pct = ["Return", "Vol", "Max DD", "Overshoot", "Days loss > limit"]
+        st.dataframe(tbl.style.format({c: "{:.1%}" for c in pct}
+                                      | {"Sharpe": "{:.2f}", "Avg exposure": "{:.2f}"}),
+                     width="stretch")  # fmt: skip
+        names = st.multiselect("Compare", si["names"],
+                               default=["buy_hold", "vt_ewma", "vt_conformal"], max_selections=4,
+                               format_func=lambda k: STRATEGY_LABELS.get(k, k))  # fmt: skip
+        if names:
+            d = res.strategies
+            eq = pd.DataFrame({STRATEGY_LABELS[n]: (1 + d[f"{n}_net"].fillna(0)).cumprod()
+                               for n in names}, index=d.index)  # fmt: skip
+            long = eq.reset_index(names="date").melt("date", var_name="strategy",
+                                                      value_name="wealth")  # fmt: skip
+            order = [STRATEGY_LABELS[n] for n in names]
+            st.altair_chart(alt.Chart(long).mark_line(strokeWidth=1.8).encode(
+                x=alt.X("date:T", title=None, axis=DATE_AXIS),
+                y=alt.Y("wealth:Q", title="growth of $1", scale=alt.Scale(zero=False)),
+                color=alt.Color("strategy:N", scale=alt.Scale(domain=order,
+                                range=SERIES[: len(order)]),
+                                legend=alt.Legend(orient="bottom", title=None)),
+                tooltip=["date:T", "strategy:N", alt.Tooltip("wealth:Q", format=".3f")],
+            ).properties(height=320), width="stretch")  # fmt: skip
 
 # ---- Ablation ----------------------------------------------------------------------------
 if view == "Text ablation":
