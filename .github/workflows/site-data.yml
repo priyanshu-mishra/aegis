@@ -1,0 +1,73 @@
+name: Site data
+
+# Refreshes market data, re-runs every backtest the site shows and exports site/public/data.
+# If the download or any run fails, the committed snapshot is used and status.json says so.
+# Deployment to GitHub Pages is added with the site itself (PLAN_v2 milestone V8).
+
+on:
+  schedule:
+    - cron: "30 22 * * 1-5" # weekdays after the US close
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "configs/**"
+      - "scripts/**"
+      - ".github/workflows/site-data.yml"
+
+concurrency:
+  group: site-data
+  cancel-in-progress: true
+
+jobs:
+  data:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e .
+      - name: Restore market-data cache
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: market-data-${{ github.run_id }}
+          restore-keys: market-data-
+      - name: Refresh data and runs
+        id: refresh
+        continue-on-error: true
+        run: |
+          set -euo pipefail
+          rm -f data/prices_*.parquet   # force today's prices; FOMC statements stay cached
+          python main.py fetch -c configs/default.yaml
+          python main.py backtest -c configs/default.yaml
+          python main.py ablation -c configs/default.yaml
+          python main.py ablation -c configs/synthetic.yaml
+          python main.py sensitivity -c configs/default.yaml
+          python main.py export-site -c configs/default.yaml
+      - name: Fall back to the committed snapshot
+        if: steps.refresh.outcome != 'success'
+        run: |
+          git checkout -- site/public/data
+          git clean -fdq site/public/data
+      - name: Write status
+        run: python scripts/site_status.py --fresh ${{ steps.refresh.outcome == 'success' }}
+      - name: Summary
+        run: |
+          {
+            echo "### Site data"
+            echo ""
+            echo "- Fresh: ${{ steps.refresh.outcome == 'success' }}"
+            echo "- Data through: $(python -c "import json;print(json.load(open('site/public/data/meta.json'))['data']['last_day'])")"
+            echo "- Files: $(ls site/public/data | wc -l), $(du -sh site/public/data | cut -f1)"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: site-data
+          path: site/public/data
+          retention-days: 14

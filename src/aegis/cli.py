@@ -217,6 +217,31 @@ def _cmd_sensitivity(cfg: AegisConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_export_site(cfg: AegisConfig, args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from aegis.data import load_dataset
+    from aegis.export import export_site, fomc_digest
+    from aegis.slm_parser import LexiconParser
+
+    run_dir = _out_dir(cfg)
+    if not (run_dir / "run_info.json").exists():
+        console.print(f"[red]No saved backtest in {run_dir}; run 'backtest' first.[/red]")
+        return 1
+    extra = {p.name: p for p in cfg.report.output_dir.iterdir()
+             if p.is_dir() and p != run_dir and p.name in ("synthetic", "ollama")}  # fmt: skip
+    ds = load_dataset(cfg)
+    news = None
+    if cfg.data.news_source == "fomc" and len(ds.news):
+        news = fomc_digest(ds.news, LexiconParser(list(ds.market.returns.columns)),
+                           list(ds.market.returns.columns))  # fmt: skip
+    out = Path(args.out)
+    files = export_site(run_dir, out, extra, prices=ds.market.prices, news=news)
+    total = sum(f.stat().st_size for f in files)
+    console.print(f"[green]Exported {len(files)} files ({total / 1e6:.2f} MB) to[/green] {out}")
+    return 0
+
+
 def _cmd_dashboard(cfg: AegisConfig, args: argparse.Namespace) -> int:
     import importlib.util
     import subprocess
@@ -262,6 +287,8 @@ def build_parser() -> argparse.ArgumentParser:
         "sensitivity", parents=[common], help="coverage and width across α, γ, window and λ"
     )
     sens.add_argument("--quick", action="store_true", help="skip the EWMA λ re-runs")
+    exp = sub.add_parser("export-site", parents=[common], help="write site JSON from a saved run")
+    exp.add_argument("--out", default="site/public/data", help="output folder")
     return parser
 
 
@@ -285,6 +312,7 @@ def main(argv: list[str] | None = None) -> int:
         "bench": _cmd_bench,
         "dashboard": _cmd_dashboard,
         "sensitivity": _cmd_sensitivity,
+        "export-site": _cmd_export_site,
     }
     handler = handlers[args.command]
     return handler(cfg, args)

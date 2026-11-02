@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 168 offline" src="https://img.shields.io/badge/tests-168%20offline-1baf7a">
+  <img alt="Tests: 175 offline" src="https://img.shields.io/badge/tests-175%20offline-1baf7a">
   <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
 </p>
@@ -291,6 +291,7 @@ The synthetic world answers a question real data can't: *if text contains a sign
 | `ablation -c <config>` | Compare runs with and without text (plus SNR sweep and oracle on synthetic data) |
 | `parse -c <config>` | Parse the news store and print signal statistics |
 | `bench` | Latency benchmark → `reports/benchmark.json` |
+| `export-site -c <config>` | Export a saved run as JSON for the site (`site/public/data`; see `site/README.md`) |
 | `sensitivity -c <config>` | Coverage and width across α, γ, rolling window and EWMA λ (`--quick` skips the λ re-runs) |
 | `dashboard` | Streamlit app over all saved runs |
 | `config -c <config>` | Print the resolved configuration |
@@ -342,9 +343,10 @@ src/aegis/
   report.py                metrics.json · figures · markdown report
   ablation.py · bench.py   text ablation · latency benchmark
 dashboard/app.py           Streamlit dashboard over reports/*
+site/                      public site: data contract (README.md) and exported JSON (public/data)
 scripts/                   make_readme_assets.py: regenerates every chart in this README
 docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
-tests/                     168 offline tests + network and live-SLM tests
+tests/                     175 offline tests + network and live-SLM tests
 ```
 
 </details>
