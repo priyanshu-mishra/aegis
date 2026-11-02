@@ -1,0 +1,24 @@
+{
+  "name": "aegis-site",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check"
+  },
+  "dependencies": {
+    "@astrojs/svelte": "^7.2.5",
+    "@fontsource-variable/source-serif-4": "^5.3.1",
+    "astro": "^5.18.2",
+    "d3-scale": "^4.0.2",
+    "d3-shape": "^3.2.0",
+    "svelte": "^5.57.3"
+  },
+  "devDependencies": {
+    "@types/d3-scale": "^4.0.9",
+    "@types/d3-shape": "^3.2.0",
+    "typescript": "^5.9.3"
+  }
+}

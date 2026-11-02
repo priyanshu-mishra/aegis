@@ -1,0 +1,102 @@
+---
+// A prospectus repeats a running head on every page; here it is the sticky chapter rail.
+interface Chapter {
+  n: string;
+  id: string;
+  title: string;
+  ready: boolean;
+}
+interface Props {
+  chapters: Chapter[];
+}
+const { chapters } = Astro.props;
+const ready = chapters.filter((c) => c.ready);
+const pending = chapters.filter((c) => !c.ready);
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+---
+<header class="head">
+  <a class="mark" href={`${base}/#cover`}>Aegis</a>
+  <nav aria-label="Chapters">
+    <ol>
+      {
+        ready.map((c) => (
+          <li>
+            <a href={`#${c.id}`}>
+              <span class="n">{c.n}</span>
+              {c.title}
+            </a>
+          </li>
+        ))
+      }
+      {pending.length > 0 && (
+        <li class="pending">
+          <a href="#contents">
+            <span class="n">{pending[0].n}–{pending[pending.length - 1].n}</span>
+            in preparation
+          </a>
+        </li>
+      )}
+    </ol>
+  </nav>
+  <a class="out" href="https://github.com/priyanshu-mishra/aegis">Code</a>
+</header>
+
+<style>
+  .head {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: var(--s2);
+    height: var(--head-h);
+    padding: 0 var(--s3) 0 calc(var(--herring-margin) + var(--s3));
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule-strong);
+    font-size: var(--step--1);
+  }
+  .mark {
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.24em;
+    font-weight: 600;
+    font-size: 1rem;
+    text-decoration: none;
+  }
+  nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  ol {
+    display: flex;
+    gap: var(--s2);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    white-space: nowrap;
+  }
+  li a {
+    text-decoration: none;
+    color: var(--ink-2);
+  }
+  li a:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  .n {
+    margin-right: 0.35em;
+    color: var(--ink-3);
+  }
+  .pending a {
+    color: var(--ink-3);
+  }
+  .out {
+    color: var(--ink-2);
+  }
+  @media (max-width: 960px) {
+    .head {
+      padding: 0 var(--s1);
+      gap: var(--s1);
+    }
+  }
+</style>

@@ -1,0 +1,114 @@
+---
+// Dot plot: how often each model's 99% VaR was breached, against the 1% it promised.
+// Two drawings: wide puts names left of each row; narrow puts them above, so phone text stays readable.
+import { box, linearX } from "../lib/chart";
+
+interface Row {
+  name: string;
+  rate: number;
+  rejected: boolean; // Kupiec test rejects the promised rate at 5%
+  focus?: boolean;
+}
+interface Props {
+  rows: Row[];
+  target: number;
+  label: string;
+  narrow?: boolean;
+}
+const { rows, target, label, narrow = false } = Astro.props;
+const width = narrow ? 400 : 720;
+const rowH = narrow ? 46 : 34;
+const b = box(width, rows.length * rowH + 44, narrow
+  ? { left: 10, right: 92, top: 20, bottom: 30 }
+  : { left: 270, right: 92, top: 20, bottom: 30 });
+const x = linearX(0, 0.022, b);
+const ticks = narrow ? [0, 0.01, 0.02] : [0, 0.005, 0.01, 0.015, 0.02];
+const dotY = (i: number) => b.top + i * rowH + (narrow ? rowH - 12 : rowH / 2);
+---
+<svg viewBox={`0 0 ${width} ${b.height}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    ticks.map((t) => (
+      <g>
+        <line x1={x(t)} x2={x(t)} y1={b.top - 6} y2={b.height - b.bottom} class="grid" />
+        <text x={x(t)} y={b.height - 8} class="tick" text-anchor="middle">
+          {(t * 100).toFixed(1)}%
+        </text>
+      </g>
+    ))
+  }
+  <line x1={x(target)} x2={x(target)} y1={b.top - 10} y2={b.height - b.bottom} class="target" />
+  <text x={x(target) + 6} y={b.top - 4} class="tick">promised 1%</text>
+  {
+    rows.map((r, i) => {
+      const cy = dotY(i);
+      const left = r.rate < target;
+      return (
+        <g class={r.focus ? "focus" : "rest"}>
+          {narrow ? (
+            <text x={b.left} y={cy - 15} class="name">{r.name}</text>
+          ) : (
+            <text x={b.left - 14} y={cy} class="name" text-anchor="end" dominant-baseline="middle">
+              {r.name}
+            </text>
+          )}
+          <line x1={x(target)} x2={x(r.rate)} y1={cy} y2={cy} class="stem" />
+          <circle cx={x(r.rate)} cy={cy} r="5" class={r.rejected ? "dot over" : "dot"} />
+          <text
+            x={left ? x(r.rate) - 10 : x(r.rate) + 10}
+            y={cy}
+            class="val"
+            text-anchor={left ? "end" : "start"}
+            dominant-baseline="middle"
+          >
+            {(r.rate * 100).toFixed(2)}%{r.rejected ? ", rejected" : ""}
+          </text>
+        </g>
+      );
+    })
+  }
+</svg>
+
+<style>
+  .grid {
+    stroke: var(--rule);
+  }
+  .target {
+    stroke: var(--ink);
+    stroke-dasharray: 4 3;
+  }
+  .tick,
+  .val {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .name {
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 4px;
+    stroke-linejoin: round;
+    font-size: 14px;
+    fill: var(--ink);
+    font-family: var(--serif);
+  }
+  .rest .name {
+    fill: var(--ink-2);
+  }
+  .stem {
+    stroke: var(--rule);
+    stroke-width: 2;
+  }
+  .dot {
+    fill: var(--ink);
+  }
+  .rest .dot {
+    fill: var(--ghost);
+  }
+  .dot.over,
+  .rest .dot.over {
+    fill: var(--herring);
+  }
+  .focus .val {
+    fill: var(--ink);
+  }
+</style>

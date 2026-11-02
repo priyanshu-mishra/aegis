@@ -1,0 +1,39 @@
+---
+// Depth one click away: the plain-language layer stays readable without it.
+interface Props {
+  summary?: string;
+}
+const { summary = "Notes for practitioners" } = Astro.props;
+---
+<details class="notes">
+  <summary>{summary}</summary>
+  <div class="body"><slot /></div>
+</details>
+
+<style>
+  .notes {
+    max-width: var(--measure);
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 1px solid var(--rule-strong);
+    margin: var(--s3) 0;
+  }
+  summary {
+    cursor: pointer;
+    padding: var(--s0) 0;
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.08em;
+    list-style-position: outside;
+  }
+  summary:hover {
+    color: var(--ink);
+  }
+  .body {
+    padding: 0 0 var(--s1);
+    font-size: 1rem;
+    color: var(--ink-2);
+  }
+  .body :global(code) {
+    font-family: var(--mono);
+    font-size: 0.875em;
+  }
+</style>

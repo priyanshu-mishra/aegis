@@ -1,0 +1,92 @@
+---
+// A lettered exhibit: title, figure, source line, and its registered table view.
+interface Props {
+  letter: string;
+  title: string;
+  source: string;
+  id?: string;
+}
+const { letter, title, source, id } = Astro.props;
+const hasTable = Astro.slots.has("table");
+---
+<figure class="exhibit" id={id}>
+  <figcaption>
+    <span class="letter sc">Exhibit {letter}</span><span class="sep" aria-hidden="true"> · </span><span class="title">{title}</span>
+  </figcaption>
+  <div class="plot"><slot /></div>
+  <p class="source"><span class="sc">Source</span> {source}</p>
+  {
+    hasTable && (
+      <details class="table">
+        <summary>View as a table</summary>
+        <slot name="table" />
+      </details>
+    )
+  }
+</figure>
+
+<style>
+  .exhibit {
+    margin: 0;
+    border-top: 2px solid var(--rule-strong);
+    padding-top: var(--s0);
+  }
+  figcaption {
+    margin-bottom: var(--s1);
+    font-size: 1.0625rem;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+  .letter,
+  .sep {
+    color: var(--ink-3);
+  }
+  .title {
+    font-weight: 600;
+  }
+  .plot :global(svg) {
+    display: block;
+    width: 100%;
+    height: auto;
+    overflow: visible;
+  }
+  .source {
+    margin: var(--s0) 0 0;
+    padding-top: var(--s0);
+    border-top: 1px solid var(--rule);
+    font-size: var(--step--1);
+    line-height: 1.5;
+    color: var(--ink-3);
+  }
+  .table {
+    margin-top: var(--s0);
+    font-size: var(--step--1);
+  }
+  summary {
+    cursor: pointer;
+    color: var(--ink-2);
+    width: max-content;
+  }
+  summary:hover {
+    color: var(--ink);
+  }
+  .table :global(table) {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: var(--s0);
+  }
+  .table :global(th),
+  .table :global(td) {
+    text-align: right;
+    padding: 0.3rem 0.5rem;
+    border-bottom: 1px solid var(--rule);
+  }
+  .table :global(th:first-child),
+  .table :global(td:first-child) {
+    text-align: left;
+  }
+  .table :global(th) {
+    font-weight: 600;
+    border-bottom: 1px solid var(--rule-strong);
+  }
+</style>

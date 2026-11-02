@@ -1,0 +1,104 @@
+---
+// 5-day realized volatility against a conformal interval, with misses marked.
+import { annual, type Frame } from "../lib/data";
+import { bandPath, box, linePath, logY, timeX } from "../lib/chart";
+
+interface Props {
+  frame: Frame;
+  method?: string; // the method in focus, drawn as the band
+  ghost?: string; // a comparison method, drawn as dashed edges
+  width?: number;
+  height?: number;
+  label: string;
+  narrow?: boolean;
+}
+const { frame, method = "aci", ghost = "split_absolute", narrow = false, label } = Astro.props;
+const width = narrow ? 400 : 720;
+const height = narrow ? 300 : 380;
+const b = box(width, height, narrow ? { left: 38 } : {});
+const x = timeX(frame.dates, b);
+const y = logY(2.5, 110, b);
+const s = frame.series;
+const pts = frame.dates.map((d, i) => {
+  const lo = annual(s[`${method}_lo`][i]);
+  const hi = annual(s[`${method}_hi`][i]);
+  const r = annual(s.y[i]);
+  return {
+    x: x(new Date(d)),
+    lo: lo == null ? null : y(lo),
+    hi: hi == null ? null : y(hi),
+    y: r == null ? null : y(r),
+    miss: r != null && lo != null && hi != null && (r < lo || r > hi),
+  };
+});
+const ghostPts = ghost
+  ? frame.dates.map((d, i) => ({
+      x: x(new Date(d)),
+      lo: s[`${ghost}_lo`][i] == null ? null : y(annual(s[`${ghost}_lo`][i])!),
+      hi: s[`${ghost}_hi`][i] == null ? null : y(annual(s[`${ghost}_hi`][i])!),
+      y: null,
+    }))
+  : [];
+const gUpper = ghostPts.map((p) => ({ ...p, y: p.hi }));
+const gLower = ghostPts.map((p) => ({ ...p, y: p.lo }));
+const yTicks = [5, 10, 20, 40, 80];
+const xTicks = x.ticks(narrow ? 4 : 6);
+const fmt = (d: Date) => d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
+const misses = pts.filter((p) => p.miss);
+---
+<svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    yTicks.map((t) => (
+      <g>
+        <line x1={b.left} x2={width - b.right} y1={y(t)} y2={y(t)} class="grid" />
+        <text x={b.left - 8} y={y(t)} class="tick" text-anchor="end" dominant-baseline="middle">
+          {t}%
+        </text>
+      </g>
+    ))
+  }
+  {
+    xTicks.map((t) => (
+      <text x={x(t)} y={height - 8} class="tick" text-anchor="middle">
+        {fmt(t)}
+      </text>
+    ))
+  }
+  <path d={bandPath(pts)} class="band" />
+  {ghost && <path d={linePath(gUpper)} class="ghost" />}
+  {ghost && <path d={linePath(gLower)} class="ghost" />}
+  <path d={linePath(pts)} class="realized" />
+  {misses.map((p) => <circle cx={p.x} cy={p.y!} r="3.4" class="miss" />)}
+</svg>
+
+<style>
+  .grid {
+    stroke: var(--rule);
+    stroke-width: 1;
+  }
+  .tick {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .band {
+    fill: var(--band);
+  }
+  .ghost {
+    fill: none;
+    stroke: var(--ink-3);
+    stroke-width: 1;
+    stroke-dasharray: 3 3;
+  }
+  .realized {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+  .miss {
+    fill: var(--paper);
+    stroke: var(--herring);
+    stroke-width: 2;
+  }
+</style>

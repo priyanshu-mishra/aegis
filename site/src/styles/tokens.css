@@ -1,0 +1,44 @@
+/* Aegis design tokens. The world: a preliminary prospectus. White paper, black ink, one red. */
+:root {
+  /* Ink and paper */
+  --paper: #ffffff;
+  --ink: #111111;
+  --ink-2: #3d3d3d; /* secondary text, 10.6:1 on paper */
+  --ink-3: #6a6a6a; /* captions and source lines, 5.4:1 on paper */
+  --rule: #d4d4d4; /* hairline table rules */
+  --rule-strong: #111111;
+  --wash: #ebebe8; /* selection and the targeted definition, never a card */
+
+  /* The one red: red-herring legend, misses, breaches. Nothing else. */
+  --herring: #c0261d; /* 5.9:1 on paper */
+
+  /* Exhibits: the interval band is ink, tinted */
+  --band: rgba(17, 17, 17, 0.12);
+  --ghost: #b5b5b5; /* methods not in focus */
+
+  /* Type */
+  --serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, serif;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; /* code and data only */
+
+  --step--1: 0.8125rem; /* 13px: source lines, small caps labels */
+  --step-0: 1.125rem; /* 18px: body */
+  --step-1: 1.375rem; /* 22px */
+  --step-2: 1.75rem; /* 28px: chapter titles */
+  --step-3: 2.25rem; /* 36px */
+  --step-4: clamp(3rem, 2rem + 4vw, 5.5rem); /* AEGIS on the cover */
+
+  --measure: 66ch;
+  --leading: 1.6;
+
+  /* Space: one rhythm, 8px base */
+  --s-1: 0.25rem;
+  --s0: 0.5rem;
+  --s1: 1rem;
+  --s2: 1.5rem;
+  --s3: 2.5rem;
+  --s4: 4rem;
+  --s5: 6rem;
+
+  --herring-margin: 3.25rem; /* width of the red legend column */
+  --head-h: 3rem; /* running head height */
+}

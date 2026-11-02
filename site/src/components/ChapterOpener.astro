@@ -1,0 +1,47 @@
+---
+// A numbered chapter head: the sequence carries the argument, so the number stays.
+interface Props {
+  n: string;
+  title: string;
+  minutes: number;
+  question: string;
+  hid?: string;
+}
+const { n, title, minutes, question, hid } = Astro.props;
+---
+<header class="opener">
+  <h2 id={hid}><span class="n">{n}</span> {title}</h2>
+  <p class="q">{question} <span class="time">{minutes} min</span></p>
+</header>
+
+<style>
+  .opener {
+    border-top: 3px double var(--rule-strong);
+    padding-top: var(--s2);
+    margin-bottom: var(--s3);
+    max-width: var(--measure);
+  }
+  h2 {
+    font-size: var(--step-3);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .n {
+    color: var(--ink-3);
+    font-weight: 400;
+    margin-right: 0.2em;
+  }
+  .q {
+    margin: var(--s0) 0 0;
+    font-size: var(--step-1);
+    font-style: italic;
+    color: var(--ink-2);
+  }
+  .time {
+    font-style: normal;
+    font-size: var(--step--1);
+    color: var(--ink-3);
+    margin-left: 0.5em;
+    white-space: nowrap;
+  }
+</style>

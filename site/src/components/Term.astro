@@ -1,0 +1,15 @@
+---
+// A defined term: marked in the text, defined under Definitions (as a prospectus does).
+interface Props {
+  id: string;
+  title: string;
+}
+const { id, title } = Astro.props;
+---
+<style>
+  .term {
+    text-decoration-style: dotted;
+    text-decoration-color: var(--ink-3);
+  }
+</style>
+<a class="term" href={`#def-${id}`} title={title}><slot /></a>

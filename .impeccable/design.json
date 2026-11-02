@@ -1,0 +1,378 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-02T14:07:58+00:00",
+  "title": "Design System: Aegis",
+  "extensions": {
+    "colorMeta": {
+      "herring-red": {
+        "role": "primary",
+        "displayName": "Herring Red",
+        "canonical": "#c0261d",
+        "tonalRamp": [
+          "#3a0b08",
+          "#5e120d",
+          "#851a13",
+          "#a82119",
+          "#c0261d",
+          "#d9584f",
+          "#eb9a94",
+          "#f7dcd9"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#111111",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Secondary Ink",
+        "canonical": "#3d3d3d",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "ink-caption": {
+        "role": "neutral",
+        "displayName": "Caption Ink",
+        "canonical": "#6a6a6a",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "rule-hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#d4d4d4",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "#111111",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "band-tint": {
+        "role": "neutral",
+        "displayName": "Band Tint",
+        "canonical": "rgba(17, 17, 17, 0.12)",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      },
+      "ghost-grey": {
+        "role": "neutral",
+        "displayName": "Ghost Grey",
+        "canonical": "#b5b5b5",
+        "tonalRamp": [
+          "#111111",
+          "#2b2b2b",
+          "#3d3d3d",
+          "#555555",
+          "#6a6a6a",
+          "#9a9a9a",
+          "#d4d4d4",
+          "#f2f2f2"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The AEGIS mark on the cover, once; uppercase, tracked 0.32em, opsz 60."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Chapter titles, with the chapter number inline in 400 Caption Ink."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Cover subtitle in italic; contents heading upright 600."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Running prose in a 66ch measure."
+      },
+      "body-small": {
+        "displayName": "Body Small",
+        "purpose": "Findings table, risk-factors note, practitioner notes, pager."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Exhibit titles, after the small-caps exhibit letter."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Small-caps Source lines, table headers, Definitions, pager labels, the red-herring legend."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Code inside practitioner notes only."
+      }
+    },
+    "rules": [
+      {
+        "name": "double",
+        "value": "3px double #111111",
+        "purpose": "Opens a chapter, closes the cover lede, heads the contents."
+      },
+      {
+        "name": "exhibit",
+        "value": "2px solid #111111",
+        "purpose": "Top edge of every Exhibit."
+      },
+      {
+        "name": "ink-hairline",
+        "value": "1px solid #111111",
+        "purpose": "Running-head base, table header, practitioner notes, byline and pager tops."
+      },
+      {
+        "name": "hairline",
+        "value": "1px solid #d4d4d4",
+        "purpose": "Table rows, rule above a Source line, contents rows, chart gridlines."
+      },
+      {
+        "name": "herring",
+        "value": "1.5px solid #c0261d",
+        "purpose": "Inner edge of the red-herring legend only."
+      }
+    ],
+    "shadows": [],
+    "focus": {
+      "value": "outline: 2px solid #111111; outline-offset: 3px",
+      "purpose": "Keyboard focus on every interactive element."
+    },
+    "motion": [
+      {
+        "name": "none",
+        "value": "none",
+        "purpose": "The page has no transitions or animation; prefers-reduced-motion disables any that are added."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "narrow-chart",
+        "value": "600px",
+        "purpose": "At or below, charts swap from the 720 wide drawing to the 400 narrow drawing."
+      },
+      {
+        "name": "single-column",
+        "value": "960px",
+        "purpose": "At or below, the legend becomes a horizontal band, the cover and two-column lists collapse to one column."
+      }
+    ],
+    "layout": {
+      "measure": "66ch",
+      "herringMargin": "3.25rem",
+      "runningHead": "3rem",
+      "coverMax": "82rem",
+      "chapterMax": "50rem",
+      "chartViewBox": {
+        "wide": 720,
+        "narrow": 400
+      }
+    }
+  },
+  "components": [
+    {
+      "name": "Running Head",
+      "kind": "nav",
+      "refersTo": "running-head",
+      "description": "Sticky prospectus running head with the chapter list.",
+      "html": "<header class=\"ds-head\"><a class=\"ds-mark\" href=\"#\">Aegis</a><nav><a href=\"#\"><span class=\"n\">0</span>Summary</a><a href=\"#\"><span class=\"n\">1</span>Why this matters</a><a href=\"#\" class=\"pending\"><span class=\"n\">2–11</span>in preparation</a></nav><a class=\"ds-out\" href=\"#\">Code</a></header>",
+      "css": ".ds-head{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;display:grid;grid-template-columns:auto 1fr auto;align-items:center;gap:24px;height:48px;padding:0 24px;border-bottom:1px solid #111;font-size:13px}.ds-mark{font-variant-caps:all-small-caps;letter-spacing:.24em;font-weight:600;font-size:16px;text-decoration:none;color:#111}.ds-head nav{display:flex;gap:24px;white-space:nowrap}.ds-head nav a{color:#3d3d3d;text-decoration:none}.ds-head nav a:hover{color:#111;text-decoration:underline}.ds-head .n{margin-right:.35em;color:#6a6a6a}.ds-head .pending{color:#6a6a6a}.ds-out{color:#3d3d3d;text-decoration-thickness:1px;text-underline-offset:.18em}"
+    },
+    {
+      "name": "Exhibit",
+      "kind": "custom",
+      "refersTo": "exhibit-caption",
+      "description": "Lettered exhibit: one-line caption, figure, Source line, table view.",
+      "html": "<figure class=\"ds-ex\"><figcaption><span class=\"sc\">Exhibit A</span><span class=\"sep\"> · </span><b>2020: the range held through the crash</b></figcaption><svg viewBox=\"0 0 400 120\"><line x1=\"0\" x2=\"400\" y1=\"40\" y2=\"40\" stroke=\"#d4d4d4\"/><line x1=\"0\" x2=\"400\" y1=\"90\" y2=\"90\" stroke=\"#d4d4d4\"/><path d=\"M0 70 C80 60 120 20 160 15 L400 50 L400 95 L160 70 C120 90 80 95 0 95Z\" fill=\"rgba(17,17,17,.12)\"/><path d=\"M0 85 L60 80 L120 30 L160 22 L220 60 L300 70 L400 75\" fill=\"none\" stroke=\"#111\" stroke-width=\"1.5\"/><circle cx=\"120\" cy=\"30\" r=\"3.4\" fill=\"#fff\" stroke=\"#c0261d\" stroke-width=\"2\"/></svg><p class=\"src\"><span class=\"sc\">Source</span> Realized 5-day volatility (line) against the adaptive 95% range (shaded). Circles mark misses.</p><details><summary>View as a table</summary></details></figure>",
+      "css": ".ds-ex{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;margin:0;border-top:2px solid #111;padding-top:8px;max-width:520px}.ds-ex figcaption{font-size:17px;line-height:1.35;margin-bottom:16px}.ds-ex .sc{font-variant-caps:all-small-caps;letter-spacing:.08em;color:#6a6a6a}.ds-ex .sep{color:#6a6a6a}.ds-ex b{font-weight:600}.ds-ex svg{display:block;width:100%;height:auto}.ds-ex .src{margin:8px 0 0;padding-top:8px;border-top:1px solid #d4d4d4;font-size:13px;line-height:1.5;color:#6a6a6a}.ds-ex details{margin-top:8px;font-size:13px}.ds-ex summary{cursor:pointer;color:#3d3d3d}"
+    },
+    {
+      "name": "Chapter Opener",
+      "kind": "custom",
+      "refersTo": "chapter-opener",
+      "description": "Double rule, numbered chapter title, the chapter's question in italic.",
+      "html": "<header class=\"ds-op\"><h2><span class=\"n\">1</span> Why this matters</h2><p>What is a risk forecast worth if you cannot tell when it is wrong? <span class=\"t\">3 min</span></p></header>",
+      "css": ".ds-op{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;border-top:3px double #111;padding-top:24px;max-width:66ch}.ds-op h2{margin:0;font-size:36px;font-weight:600;letter-spacing:-.01em;line-height:1.15}.ds-op .n{color:#6a6a6a;font-weight:400;margin-right:.2em}.ds-op p{margin:8px 0 0;font-size:22px;font-style:italic;color:#3d3d3d;line-height:1.6}.ds-op .t{font-style:normal;font-size:13px;color:#6a6a6a;margin-left:.5em}"
+    },
+    {
+      "name": "Findings Table",
+      "kind": "custom",
+      "refersTo": "findings-table",
+      "description": "Result against target, on hairlines, tabular figures.",
+      "html": "<table class=\"ds-ft\"><thead><tr><th>Finding</th><th class=\"num\">Result</th><th class=\"num\">Target</th></tr></thead><tbody><tr><th>Share of days the 95% interval held<span>textbook method: 93.3%</span></th><td class=\"num r\">95.0%</td><td class=\"num g\">95%</td></tr><tr><th>Days a 99% loss limit was breached<span>normal-distribution model: 1.93%</span></th><td class=\"num r\">0.93%</td><td class=\"num g\">1.00%</td></tr></tbody></table>",
+      "css": ".ds-ft{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;width:100%;max-width:34rem;border-collapse:collapse;font-size:16px;line-height:1.4}.ds-ft thead th{font-weight:600;font-size:13px;font-variant-caps:all-small-caps;letter-spacing:.08em;text-align:left;border-bottom:1px solid #111;padding:0 0 4px}.ds-ft tbody th,.ds-ft td{padding:8px 0;border-bottom:1px solid #d4d4d4;vertical-align:top}.ds-ft tbody th{font-weight:400;text-align:left;padding-right:16px}.ds-ft tbody th span{display:block;font-size:13px;color:#6a6a6a}.ds-ft .num{text-align:right;white-space:nowrap}.ds-ft .r{font-weight:600;font-size:17px}.ds-ft .g{padding-left:16px;color:#6a6a6a}"
+    },
+    {
+      "name": "Red-Herring Legend",
+      "kind": "custom",
+      "refersTo": "red-herring-legend",
+      "description": "The preliminary legend in red small caps; vertical in the margin on wide screens, a band on narrow.",
+      "html": "<aside class=\"ds-rh\"><p>Preliminary · the figures in this study refresh every weeknight from market data and may change · data through 30 October 2026 · nothing here is investment advice</p></aside>",
+      "css": ".ds-rh{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;border-bottom:1.5px solid #c0261d;padding:8px 16px}.ds-rh p{margin:0;color:#c0261d;font-size:13px;font-variant-caps:all-small-caps;letter-spacing:.1em;line-height:1.3;text-align:center}"
+    },
+    {
+      "name": "Practitioner Notes",
+      "kind": "custom",
+      "refersTo": "practitioner-notes",
+      "description": "Depth one click away, between two ink rules.",
+      "html": "<details class=\"ds-pn\" open><summary>Notes for practitioners</summary><div>ACI follows Gibbs and Candès (2021); <code>alpha_t</code> is updated after each day.</div></details>",
+      "css": ".ds-pn{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;max-width:66ch;border-top:1px solid #111;border-bottom:1px solid #111}.ds-pn summary{cursor:pointer;padding:8px 0;font-variant-caps:all-small-caps;letter-spacing:.08em}.ds-pn div{padding:0 0 16px;font-size:16px;color:#3d3d3d;line-height:1.6}.ds-pn code{font-family:ui-monospace,'SF Mono',Menlo,Consolas,monospace;font-size:.875em}"
+    },
+    {
+      "name": "Link and Defined Term",
+      "kind": "custom",
+      "description": "Inherited-color links with a quiet underline; defined terms dotted.",
+      "html": "<p class=\"ds-ln\">The day it is exceeded is a <a class=\"term\" href=\"#\">breach</a>. See the <a href=\"#\">project notes</a>.</p>",
+      "css": ".ds-ln{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;font-size:18px;line-height:1.6;max-width:66ch}.ds-ln a{color:inherit;text-decoration-line:underline;text-decoration-thickness:1px;text-underline-offset:.18em;text-decoration-color:#6a6a6a}.ds-ln a:hover{text-decoration-color:#111}.ds-ln a:focus-visible{outline:2px solid #111;outline-offset:3px}.ds-ln a.term{text-decoration-style:dotted}"
+    },
+    {
+      "name": "Pager",
+      "kind": "nav",
+      "description": "Previous and next at each chapter end, under an ink rule.",
+      "html": "<nav class=\"ds-pg\"><a href=\"#\"><span>Previous</span>0 Summary</a><a href=\"#\" class=\"nx\"><span>Next</span>2 The portfolio</a></nav>",
+      "css": ".ds-pg{font-family:'Source Serif 4 Variable','Source Serif 4',Georgia,serif;font-variant-numeric:lining-nums tabular-nums;color:#111;background:#fff;display:flex;justify-content:space-between;gap:24px;padding-top:8px;border-top:1px solid #111;font-size:16px}.ds-pg a{color:#111;text-decoration:none}.ds-pg a:hover{text-decoration:underline}.ds-pg span{display:block;font-size:13px;color:#6a6a6a;font-variant-caps:all-small-caps;letter-spacing:.08em}.ds-pg .nx{text-align:right}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Prospectus",
+    "overview": "Aegis is typeset as a preliminary prospectus for a model: white paper, black ink, one serif family, and a single red reserved for the warning that the figures are preliminary and for the places the model failed. Structure comes from the document trade, not the web: double rules open sections, hairlines divide table rows, labels are set in small caps, every chart is a lettered Exhibit with a caption, a Source line and a table view, and a running head carries the chapter list.\n\nDensity is that of a reading document. One text column of 66 characters carries the argument; exhibits may run wider than the column but never break out into decorated panels. Nothing floats, glows or rounds off. Depth is made by rule weight alone.\n\nThe world rejects the scrolling ML-explainer article: no hero figure, no cards, no shadows, no gradients, no rounded corners, no labels stacked above headings.",
+    "keyCharacteristics": [
+      "White paper (#ffffff), near-black ink (#111111), greys for hierarchy, one red.",
+      "Source Serif 4 with optical sizes for everything; lining tabular figures throughout.",
+      "A ladder of rule weights (double, heavy, ink hairline, grey hairline) replaces boxes and shadows.",
+      "Lettered Exhibits, each with caption, Source line and \"View as a table\".",
+      "Charts drawn twice: a wide drawing and a narrow one, swapped at 600px."
+    ],
+    "rules": [
+      {
+        "name": "The Red Herring Rule",
+        "body": "Red appears only on the preliminary legend, on misses, and on breaches or rejected models. If a red mark does not signal a warning or a failure, it is wrong.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Band Rule",
+        "body": "Intervals and ranges are drawn as tinted ink; comparison methods are dashed Caption Ink edges. Data color comes from ink weight, not from a palette.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Family Rule",
+        "body": "Every word is Source Serif 4; the monospace stack appears only around code inside practitioner notes.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Figures Rule",
+        "body": "Lining tabular figures are on globally, so every number in prose, tables and charts aligns in columns.",
+        "section": "typography"
+      },
+      {
+        "name": "The Inline Label Rule",
+        "body": "Small-caps labels sit inline with or beside what they name (\"Exhibit A · title\", \"Source …\", \"Risk factors.\"), never as a separate line stacked above a heading.",
+        "section": "typography"
+      },
+      {
+        "name": "The Drawn Twice Rule",
+        "body": "Every chart ships two drawings from the same data: a wide 720-unit viewBox and a narrow 400-unit one with larger relative text and labels moved above rows. They toggle at 600px; a chart is never just scaled down.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Paper Rule",
+        "body": "Nothing lifts off the page. If an element needs emphasis, give it a heavier rule or more space, not elevation.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Rule Ladder Rule",
+        "body": "Each rule weight has one meaning; pick the weight by the boundary it marks, never for decoration.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Lettered Exhibit Rule",
+        "body": "Every chart is a lettered Exhibit with caption, Source line and table view, and carries an accessible label summarising what it shows.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "**Do** reserve Herring Red for the legend, misses and breaches or rejected models (The Red Herring Rule).",
+      "**Do** open every chapter with a 3px double ink rule and every exhibit with a 2px ink rule.",
+      "**Do** letter every chart as an Exhibit with a one-line caption, a Source line and a \"View as a table\" disclosure.",
+      "**Do** draw every chart twice, wide (720) and narrow (400), toggled at 600px.",
+      "**Do** keep prose to a 66ch measure and figures tabular.",
+      "**Do** draw the method in focus in Ink and the others in Ghost Grey."
+    ],
+    "donts": [
+      "**Don't** use cards, panels or background fills to group content; use rules and space.",
+      "**Don't** use shadows, gradients or rounded corners.",
+      "**Don't** add a second typeface outside code.",
+      "**Don't** set a label, kicker or eyebrow on its own line above a heading.",
+      "**Don't** use red for emphasis, links, hover, selection or highlight states.",
+      "**Don't** scale a wide chart down for phones; ship its narrow drawing."
+    ]
+  }
+}
