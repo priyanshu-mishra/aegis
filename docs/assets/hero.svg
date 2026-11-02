@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-labelledby="t d">
+  <title id="t">Aegis</title>
+  <desc id="d">Calibrated uncertainty for market-risk forecasts: conformal prediction, a factor risk engine, and SLM text signals.</desc>
+  <style>
+    .card { fill: #f6f8fa; stroke: rgba(11,11,11,0.08); }
+    .ink { fill: #0b0b0b; } .ink2 { fill: #52514e; } .muted { fill: #898781; }
+    .accent { fill: #2a78d6; } .accent-s { stroke: #2a78d6; }
+    .band { fill: #2a78d6; opacity: 0.16; } .band2 { fill: #2a78d6; opacity: 0.10; }
+    .real { stroke: #0b0b0b; } .grid { stroke: #e1e0d9; }
+    .chip { fill: #ffffff; stroke: rgba(11,11,11,0.10); }
+    .miss { fill: #d03b3b; }
+    text { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+    @media (prefers-color-scheme: dark) {
+      .card { fill: #161b22; stroke: rgba(255,255,255,0.08); }
+      .ink { fill: #f0efec; } .ink2 { fill: #c3c2b7; }
+      .accent { fill: #3987e5; } .accent-s { stroke: #3987e5; }
+      .band, .band2 { fill: #3987e5; }
+      .real { stroke: #f0efec; } .grid { stroke: #2c2c2a; }
+      .chip { fill: #0d1117; stroke: rgba(255,255,255,0.10); }
+      .miss { fill: #e66767; }
+    }
+  </style>
+
+  <rect class="card" x="1" y="1" width="1198" height="338" rx="18"/>
+
+  <!-- Left: identity -->
+  <g transform="translate(56,0)">
+    <path class="accent" d="M0 78 L22 70 L44 78 L44 104 C44 122 33 134 22 140 C11 134 0 122 0 104 Z"/>
+    <path d="M12 104 L20 112 L33 95" fill="none" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+    <text class="ink" x="62" y="124" font-size="58" font-weight="700" letter-spacing="-1.5">Aegis</text>
+    <text class="ink" x="0" y="182" font-size="24" font-weight="600">Calibrated uncertainty for market-risk forecasts</text>
+    <text class="ink2" x="0" y="214" font-size="16">Conformal prediction · factor risk engine · SLM text signals · honest backtests</text>
+
+    <!-- stat chips -->
+    <g transform="translate(0,246)">
+      <rect class="chip" width="176" height="62" rx="12"/>
+      <text class="accent" x="16" y="30" font-size="22" font-weight="700">95.0%</text>
+      <text class="ink2" x="16" y="50" font-size="12.5">interval coverage (ACI)</text>
+    </g>
+    <g transform="translate(190,246)">
+      <rect class="chip" width="176" height="62" rx="12"/>
+      <text class="ink" x="16" y="30" font-size="22" font-weight="700">0.99%</text>
+      <text class="ink2" x="16" y="50" font-size="12.5">99% VaR breaches</text>
+    </g>
+    <g transform="translate(380,246)">
+      <rect class="chip" width="176" height="62" rx="12"/>
+      <text class="ink" x="16" y="30" font-size="22" font-weight="700">0.4 ms</text>
+      <text class="ink2" x="16" y="50" font-size="12.5">to score one day</text>
+    </g>
+  </g>
+
+  <!-- Right: stylised prediction band -->
+  <g transform="translate(700,46)">
+    <line class="grid" x1="0" y1="60" x2="440" y2="60" stroke-width="1"/>
+    <line class="grid" x1="0" y1="130" x2="440" y2="130" stroke-width="1"/>
+    <line class="grid" x1="0" y1="200" x2="440" y2="200" stroke-width="1"/>
+    <path class="band2" d="M0 120 C40 112 70 104 100 96 C125 60 140 22 160 18 C190 14 215 56 250 74 C300 98 340 104 380 102 C405 101 425 100 440 98
+                         L440 196 C425 197 405 198 380 198 C340 196 300 192 250 180 C215 168 190 140 160 132 C140 128 125 150 100 160 C70 166 40 172 0 176 Z"/>
+    <path class="band" d="M0 128 C40 122 70 116 100 110 C125 82 140 46 160 42 C190 38 215 72 250 88 C300 108 340 114 380 112 C405 111 425 110 440 108
+                         L440 184 C425 185 405 186 380 186 C340 184 300 180 250 168 C215 156 190 128 160 120 C140 116 125 140 100 148 C70 154 40 160 0 164 Z"/>
+    <path class="real" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"
+          d="M0 150 L20 140 L38 156 L56 138 L74 148 L92 126 L104 102 L114 70 L124 34 L134 52 L146 38 L160 64 L176 88 L194 104 L212 122 L230 112 L250 136 L270 128 L290 146 L310 138 L330 154 L350 142 L370 160 L390 148 L410 156 L428 144 L440 150"/>
+    <circle class="miss" cx="114" cy="70" r="4.5"/>
+    <circle class="miss" cx="124" cy="34" r="4.5"/>
+    <text class="muted" x="0" y="232" font-size="12">realized volatility inside an adaptive 95% interval · red: misses</text>
+  </g>
+</svg>

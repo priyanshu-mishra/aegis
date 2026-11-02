@@ -7,6 +7,8 @@ name = "aegis"
 version = "0.1.0"
 description = "Conformal risk engine: SLM semantic parser, quantitative factor engine, conformal (NCM) calibration."
 readme = "README.md"
+license = { text = "MIT" }
+authors = [{ name = "Priyanshu Mishra" }]
 requires-python = ">=3.11"
 dependencies = [
     "numpy>=1.26",

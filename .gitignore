@@ -12,3 +12,6 @@ reports/
 
 .DS_Store
 .remember/
+
+# Tool output
+.playwright-mcp/

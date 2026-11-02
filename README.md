@@ -1,85 +1,115 @@
-# Aegis
+<p align="center">
+  <img src="docs/assets/hero.svg" alt="Aegis: calibrated uncertainty for market-risk forecasts" width="100%">
+</p>
 
-A risk engine that puts **calibrated uncertainty** around market-risk forecasts. A semantic parser (deterministic lexicon or a local SLM) turns financial text into structured shock signals; a factor engine forecasts portfolio volatility and Value-at-Risk; a conformal prediction layer wraps those forecasts in intervals whose coverage is checked, not assumed.
+<p align="center">
+  <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
+  <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
+  <img alt="Tests: 133 offline" src="https://img.shields.io/badge/tests-133%20offline-1baf7a">
+  <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
+  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
+</p>
 
-The headline result is an honest one. Textbook split conformal **misses its 95% target** on 2020–2026 market data, because markets aren't exchangeable. Adaptive Conformal Inference recovers 95%, including through the COVID crash. Text signals did **not** improve real-data forecasts; the ablation shows exactly when and why.
+**Aegis** wraps portfolio-risk forecasts in prediction intervals whose coverage is measured, not assumed. A semantic parser (a deterministic lexicon or a local small language model) turns financial text into structured shock signals; a factor engine forecasts volatility and Value-at-Risk; a conformal prediction layer calibrates the uncertainty around them. Everything is evaluated walk-forward on 2020–2026 market data, with tests that rule out look-ahead.
 
-See [docs/PLAN.md](docs/PLAN.md) for the original design, the milestone log and which success criteria were met.
+### Key findings
+
+- **Textbook conformal prediction under-covers on real markets.** Split conformal reaches 93.3% instead of 95%, and 88.9% in 2020, because markets are not exchangeable. **Adaptive Conformal Inference (ACI) recovers 95.0%**, including 94.5% through the COVID year.
+- **Conformal VaR fixes the 99% tail.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–0.99% of days against a 1% target.
+- **Text did not beat prices on real data, and the ablation shows why.** In a synthetic world with a known signal, text only helps when headlines are close to noise-free. Fixing the SLM's schema took its sign accuracy from 70% to 100%, but about eight FOMC statements a year is too sparse a signal.
+
+---
+
+## Contents
+
+[Quickstart](#quickstart) · [How it works](#how-it-works) · [Results](#results) · [The text layer](#the-text-layer) · [Dashboard](#dashboard) · [Engineering](#engineering) · [Commands](#commands) · [Layout](#repository-layout)
 
 ## Quickstart
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
+git clone https://github.com/priyanshu-mishra/aegis.git && cd aegis
 ```
 
 ```bash
-pip install -e ".[dev,dashboard]"
+python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev,dashboard]"
 ```
 
 ```bash
 python main.py demo
 ```
 
-`demo` runs the full pipeline offline on a synthetic market in about 3 seconds and writes `reports/demo/backtest_report.md`. Then:
+`demo` runs the whole pipeline offline on a synthetic market in about 3 seconds and writes a report to `reports/demo/`. Real data is one command away:
+
+```bash
+python main.py backtest -c configs/default.yaml
+```
 
 ```bash
 python main.py dashboard
 ```
 
-## Commands
-
-| Command | What it does |
-|---|---|
-| `demo` | Offline end-to-end run on a synthetic world (no network, no model) |
-| `fetch -c configs/default.yaml` | Download and cache prices (yfinance) and FOMC statements |
-| `backtest -c <config>` | Walk-forward backtest; writes series, `metrics.json`, figures and a markdown report to `reports/<name>/` |
-| `report -c <config>` | Re-render the report from saved series |
-| `ablation -c <config>` | Backtest with and without text signals (plus SNR sweep and oracle on synthetic data) |
-| `parse -c <config>` | Run the parser over the news store and print signal statistics |
-| `bench` | Latency benchmark; writes `reports/benchmark.json` |
-| `dashboard` | Streamlit app over every saved run |
-| `config -c <config>` | Print the resolved configuration |
-
-Any config value can be overridden with `--set key.path=value`, e.g. `--set conformal.alpha=0.1`.
-
-Configs: `default.yaml` (real data, price-only), `synthetic.yaml` (known-signal world with news), `ollama.yaml` (real data + local SLM).
-
 ## How it works
 
-```
- prices (yfinance) ─┐                    ┌─ FOMC statements / synthetic headlines
-                    │                    │   masked → parsed → RiskSignal (validated JSON)
-                    │                    │   → daily as-of aggregation → clipped to train range
-                    ▼                    ▼
-       Factor engine: EWMA covariance × semantic shock overlay
-       HAR / ridge / LightGBM point model μ̂, scale σ̂, quantiles q̂_lo, q̂_hi
-                    │
-                    ▼
-       Conformal layer: split · normalized · CQR · rolling · ACI · one-sided VaR
-                    │
-                    ▼
-       Walk-forward backtest → coverage, Winkler, Kupiec, Christoffersen → report / dashboard
-```
+<p align="center">
+  <img src="docs/assets/architecture.svg" alt="Architecture: data, semantic parser, factor engine, conformal layer, evaluation" width="100%">
+</p>
 
-**Targets.** (A) log realized portfolio volatility over the next 5 days, with two-sided 95% intervals; (B) next-day portfolio return, with 95% and 99% one-sided VaR.
+**1 · Data.** Daily adjusted prices for an equal-weight SPY / TLT / GLD / USO portfolio plus the VIX, cached from yfinance. The text source is every FOMC statement since 2010, scraped from federalreserve.gov with its exact release time; emergency statements are included, such as the Sunday 15 March 2020 cut. A synthetic world, where hidden macro shocks drive returns, volatility regimes and headlines, provides ground truth for testing the text layer.
 
-**Conformal.** Calibration scores S = |y − μ̂| (or normalized / CQR variants) give the threshold q̂ = the ⌈(n+1)(1−α)⌉-th smallest score. Under exchangeability this guarantees 1 − α ≤ coverage ≤ 1 − α + 1/(n+1), marginally. ACI updates its working level α_t ← α_t + γ(α − miss_t) after every outcome, which guarantees long-run coverage for *any* sequence, with no exchangeability assumption.
+**2 · Semantic parser.** Text is masked (dates, years, named events and people are replaced so a model can't recall what came next) and parsed into a validated `RiskSignal`: six direction-named shocks (`rate_pressure`, `credit_stress`, …), sentiment, a volatility-premium signal and per-asset impacts. The Ollama backend forces the model's output to follow the JSON schema, validates it with pydantic, retries once, and falls back to the lexicon, so the pipeline never fails because the model did.
 
-**No look-ahead.** A news item counts toward day t only if it was published before 4 p.m. New York time on day t. Splits have a 5-day embargo, and online methods see an outcome only after it is realized. A test perturbs every price after a test date t and asserts that every interval and VaR dated on or before t is unchanged.
+**3 · Factor engine.** An EWMA covariance (λ = 0.94) is rescaled by a semantic shock overlay `Σ̃ = D Σ D`, which keeps the covariance positive semi-definite and leaves correlations unchanged. A standardized ridge model with a cross-validated penalty predicts **target A**, the log realized portfolio volatility over the next 5 days, from HAR volatility terms (1, 5 and 22 days), EWMA volatility, the VIX and the text features. **Target B** is the next-day portfolio return, used for VaR.
 
-**Guarantees and limits.** Split conformal's guarantee does not hold on market data, and the report says so. ACI's guarantee is long-run, not per quarter. Coverage by volatility regime (conditional coverage) is reported but not guaranteed by any method here.
+**4 · Conformal layer.** On a held-out calibration set, compute non-conformity scores and take a finite-sample-corrected quantile:
 
-## Results (real data, price-only)
+$$S_i = \lvert y_i - \hat\mu(X_i) \rvert, \qquad \hat q = S_{(k)},\quad k = \lceil (n+1)(1-\alpha) \rceil, \qquad C(X) = [\hat\mu(X) - \hat q,\ \hat\mu(X) + \hat q]$$
 
-Train 2010–2017, calibrate 2018–2019, test 2020-01 → 2026-10 (1,712 days), equal-weight SPY/TLT/GLD/USO, point model: standardized ridge with a CV-chosen penalty.
+If the data are exchangeable, this guarantees $1-\alpha \le P(y \in C(X)) \le 1-\alpha + \tfrac{1}{n+1}$. Market data are not exchangeable, so Aegis also runs a **rolling** window and **ACI**, which adjusts its working level after every realized outcome:
 
-| 5-day vol interval, target 95% | Coverage | 2020 | Worst quarter | Avg width | Winkler |
-|---|---|---|---|---|---|
-| Gaussian (uncalibrated) | 94.0% | 89.7% | 71.4% | 1.648 | 2.149 |
-| Split conformal | 93.3% | 88.9% | 68.3% | 1.596 | 2.162 |
-| CQR | 94.3% | 87.4% | 65.1% | 1.802 | 2.301 |
-| Rolling conformal | 94.8% | 91.7% | 73.0% | 1.722 | 2.184 |
-| **Adaptive conformal (ACI)** | **95.0%** | **94.5%** | **82.5%** | 1.739 | 2.212 |
+$$\alpha_{t+1} = \alpha_t + \gamma\,(\alpha - \mathrm{miss}_t), \qquad \Big\lvert \tfrac{1}{T}\textstyle\sum_t \mathrm{miss}_t - \alpha \Big\rvert \le \frac{\max(\alpha_1, 1-\alpha_1) + \gamma}{\gamma T}$$
+
+ACI's bound holds for *any* sequence, with no distributional assumption. The same machinery with a one-sided score gives conformal VaR.
+
+**5 · Walk-forward evaluation.** Train on 2010–2017, calibrate on 2018–2019, then score 2020–2026 one day at a time:
+
+<p align="center">
+  <img src="docs/assets/walkforward.svg" alt="Walk-forward protocol with embargoes and delayed feedback" width="100%">
+</p>
+
+## Results
+
+All results below are out-of-sample: 1,712 trading days from January 2020 to October 2026, never used for fitting or calibration.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/intervals_2020-dark.svg">
+  <img alt="2020 up close: ACI vs split conformal intervals for 5-day realized volatility" src="docs/assets/intervals_2020-light.svg" width="100%">
+</picture>
+
+In March 2020, realized volatility jumped from about 7% to 76% annualized. Both methods missed the first days of the jump: no interval built from 2018–2019 data could contain it. The difference is what happened next. ACI registered the misses, lowered its working α and widened the band; split conformal kept the same fixed width it was calibrated with.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/rolling-dark.svg">
+  <img alt="Rolling 63-day coverage: split conformal vs ACI" src="docs/assets/rolling-light.svg" width="100%">
+</picture>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/coverage-dark.svg">
+  <img alt="Coverage and worst-quarter coverage by method" src="docs/assets/coverage-light.svg" width="100%">
+</picture>
+
+ACI is the only method that hits 95% overall *and* has the best worst quarter (82.5%). The uncalibrated Gaussian interval looks close overall (94.0%), but its coverage swings from 89.7% in 2020 to 98% in 2024: right on average, wrong in every regime.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/by_year-dark.svg">
+  <img alt="Coverage by year heatmap" src="docs/assets/by_year-light.svg" width="100%">
+</picture>
+
+### Value-at-Risk
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/var-dark.svg">
+  <img alt="99% VaR breach rates and backtest outcomes" src="docs/assets/var-light.svg" width="100%">
+</picture>
 
 | One-day VaR | 95%: breaches · Kupiec · Christoffersen | 99%: breaches · Kupiec · Christoffersen |
 |---|---|---|
@@ -87,47 +117,94 @@ Train 2010–2017, calibrate 2018–2019, test 2020-01 → 2026-10 (1,712 days),
 | Rolling conformal | 5.02% · pass · fail | 0.99% · pass · pass |
 | ACI | 4.91% · pass · **pass** | 0.99% · pass · fail |
 | Gaussian EWMA (RiskMetrics) | 4.96% · pass · fail | 1.93% · **fail** · pass |
-| Historical simulation | 5.78% · pass · fail | 1.69% · **fail** · fail |
+| Historical simulation (250 days) | 5.78% · pass · fail | 1.69% · **fail** · fail |
 | GARCH(1,1)-t | 5.72% · pass · fail | 1.40% · pass · fail |
 
-Conformal VaR fixes the 99% tail that Gaussian and historical simulation underestimate. No method passes every test at both levels: rolling conformal is cleanest at 99%, and ACI is the only method without clustered breaches at 95%.
+The Kupiec test checks that the breach rate is right; the Christoffersen test checks that breaches don't cluster. At 95% every method gets the rate right and almost all fail on clustering, since breaches arrive in bursts during crises. At 99% the fat tails show: the Gaussian VaR breaches twice as often as it should. No single method passes everything. Rolling conformal is cleanest at 99%, and ACI is the only method without clustered breaches at 95%.
 
-**What didn't work.** Volatility-scaled (normalized) and CQR intervals never beat the plain absolute residual: the target is already log-vol, whose residuals are close to homoskedastic, so a scale model mostly adds noise. For the same reason the online methods use the absolute score by default (ACI on CQR: Winkler 2.320 → on absolute: 2.212).
+### What didn't work
 
-## Does the text layer help?
+Volatility-scaled (normalized) intervals and conformalized quantile regression (CQR) never beat the plain absolute residual (Winkler interval score 2.162, lower is better, vs 2.277 and 2.301). The target is log volatility, and taking the log already makes residuals about the same size in calm and stressed periods, so a scale model mostly adds noise. The online methods therefore default to the absolute score, which improved ACI from Winkler 2.320 to 2.212.
 
-| Synthetic world (known signal) | Vol RMSE vs prices only | Parsed vs true shock (corr.) |
-|---|---|---|
-| Headlines are pure noise (SNR 0) | +1.9% | −0.02 |
-| SNR 0.5 (default) | +0.9% | 0.15 |
-| SNR 2 | +0.4% | 0.51 |
-| Near noise-free headlines (SNR 100) | **−1.1%** | 0.90 |
-| True latent shocks (oracle upper bound) | −2.2% | 1.00 |
+## The text layer
 
-| Real data, 139 FOMC statements | Vol RMSE vs prices only | CQR coverage · width | ACI coverage · width |
-|---|---|---|---|
-| Prices only | — | 94.3% · 1.80 | 95.0% · 1.74 |
-| + lexicon text | +1.2% | 94.4% · 1.95 | 95.3% · 1.78 |
-| + SLM text (qwen2.5:3b, prompt v2) | +2.8% | 94.4% · 2.50 | 95.1% · 1.79 |
-| + SLM text, prompt v1, no clipping (before fixes) | +16.7% | 82.4% · 2.07 | — |
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/ablation-dark.svg">
+  <img alt="Text ablation: synthetic SNR sweep and real FOMC results" src="docs/assets/ablation-light.svg" width="100%">
+</picture>
 
-Text helps only when it is both frequent and nearly noise-free. About eight FOMC statements a year is too sparse, so `default.yaml` runs price-only. The lexicon's rules were written with knowledge of the synthetic headline templates, so on synthetic data the gap to the oracle is headline noise, not parsing error.
+The synthetic world answers a question real data can't: *if text contains a signal, does the pipeline find it?* Forecast error falls steadily as headlines get cleaner, from +1.9% with pure-noise headlines to −1.1% with near-noise-free ones, against a −2.2% ceiling when the model is given the true latent shocks. On real data, FOMC statements are too sparse to help, so `configs/default.yaml` runs price-only. Text features are clipped to their training range, so language from a new regime (pandemic, war, bank stress) can't drive unbounded extrapolation.
 
-### Local SLM (Ollama)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/slm-dark.svg">
+  <img alt="SLM accuracy before and after the direction-named schema" src="docs/assets/slm-light.svg" width="100%">
+</picture>
 
-Model output is constrained to the `RiskSignal` JSON schema, validated, retried once, and falls back to the lexicon on failure. There were 0 retries and 0 fallbacks across all runs. Results are cached in `data/slm_cache.sqlite`, keyed by backend, model, prompt version and text. Dates, years, named events and Fed chairs are masked before parsing, so the model can't recall what happened next.
+**A schema bug, not a model limitation.** The first schema used neutral factor names with a stated sign convention ("credit: positive = stress widening"). qwen2.5:3b reversed it wherever the convention was counter-intuitive, scoring "credit spreads tighten" as rising stress on every headline. Naming each field by its positive direction (`credit_stress`, `geopolitical_tension`) and adding balanced few-shot examples took sign agreement from 70% to 100%. The SLM now tracks the true shocks slightly better than the hand-written lexicon, with no hand-written rules. It still reads some zero-rate-era easing as tightening, including the March 2020 emergency cut.
 
-**Prompt v1 → v2.** v1 used neutral factor names with a stated sign convention. qwen2.5:3b reversed it wherever the convention was counter-intuitive: "credit spreads tighten" was scored as rising credit stress every time. v2 names each field by its positive direction (`rate_pressure`, `credit_stress`, `geopolitical_tension`, …), describes what +1 and −1 mean, and uses balanced few-shot examples. On 200 synthetic headlines scored against ground truth:
+## Dashboard
 
-| | SLM v1 | SLM v2 | Lexicon |
-|---|---|---|---|
-| Sign agreement on clear headlines | 69–72% | **100%** | 100% |
-| Correlation with true shock, SNR 2 | 0.11 | **0.51** | 0.43 |
-| Correlation with true shock, SNR 100 | 0.38 | **0.95** | 0.91 |
+<p align="center">
+  <img src="docs/assets/dashboard.png" alt="Aegis Streamlit dashboard" width="100%">
+</p>
 
-The SLM still misreads some easing in the zero-rate era as tightening. The 15 March 2020 emergency cut and the September 2012 QE3 launch both score rate pressure +0.7 to +0.8; 5 of 7 checked decisions are scored correctly.
+`python main.py dashboard` opens a Streamlit app over every saved run. It shows:
+- an interactive interval chart with misses marked
+- coverage tables and rolling coverage by method
+- VaR backtests with each test's pass/fail coloured
+- the text ablation and latency results
 
-To run it yourself:
+## Engineering
+
+**No look-ahead.**
+- A news item counts toward day t only if it was published before that day's 4 p.m. New York close.
+- Each segment ends with a 5-day embargo, so no training target overlaps calibration and no calibration target overlaps the test period.
+- Online methods see a 5-day-ahead outcome only once it has happened.
+- Inverse-vol weights for day t use data through day t−1.
+- GARCH parameters are fitted on training data only, then frozen.
+- An end-to-end test perturbs every price after a test day t and asserts that every interval and VaR level dated on or before t is unchanged.
+
+**Statistical tests of the statistics.**
+- Coverage is checked over 2,000 trials on deliberately misspecified models; it must fall within the finite-sample bound.
+- ACI's long-run bound is checked exactly under a variance shift.
+- The conformal quantile is property-tested (Hypothesis) against exact rational arithmetic.
+- Kupiec and Christoffersen are checked against hand-calculated values, and the false-alarm rate is checked over 400 random breach sequences.
+
+**Reliability.**
+- The SLM's output is forced to follow the JSON schema and is validated, with a retry and a lexicon fallback.
+- Parses are cached in SQLite by backend, model, prompt version and text, which also gives an audit log.
+- Prices and FOMC statements are cached and downloaded incrementally.
+- Configs are typed and validated: a misspelled key or an embargo shorter than the forecast horizon fails loudly.
+
+**Latency (Apple M4 Pro, `python main.py bench`).**
+
+| Measure | Value |
+|---|---|
+| Full backtest, 1,301 test days, all methods and baselines | 1.0 s |
+| Score one day (point model + conformal interval), p50 / p95 | 0.39 / 0.56 ms |
+| Lexicon parse per headline, p50 | 0.09 ms |
+| SLM parse per headline (qwen2.5:3b via Ollama), p50 / p95 | 1.8 / 1.9 s |
+
+**Guarantees and limits.** Split conformal's guarantee needs exchangeability, which market data violate; its test coverage here is an empirical result, not a guarantee. ACI's guarantee is long-run, not per quarter. Coverage within volatility regimes (conditional coverage) is reported but not guaranteed by any method here.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `demo` | Offline end-to-end run on a synthetic market (no network, no model) |
+| `fetch -c configs/default.yaml` | Download and cache prices and FOMC statements |
+| `backtest -c <config>` | Walk-forward backtest → series, `metrics.json`, figures and a markdown report in `reports/<name>/` |
+| `report -c <config>` | Re-render the report from saved series |
+| `ablation -c <config>` | Compare runs with and without text (plus SNR sweep and oracle on synthetic data) |
+| `parse -c <config>` | Parse the news store and print signal statistics |
+| `bench` | Latency benchmark → `reports/benchmark.json` |
+| `dashboard` | Streamlit app over all saved runs |
+| `config -c <config>` | Print the resolved configuration |
+
+Any setting can be overridden from the command line, e.g. `--set conformal.alpha=0.1`. There are three configs: `default` (real data, price-only), `synthetic` (known-signal world) and `ollama` (real data plus a local SLM).
+
+<details>
+<summary><b>Run the local SLM</b></summary>
 
 ```bash
 brew install ollama
@@ -145,16 +222,12 @@ ollama pull qwen2.5:3b
 python main.py ablation -c configs/ollama.yaml
 ```
 
-## Latency (Apple M4 Pro, `python main.py bench`)
-
-| Measure | Value |
-|---|---|
-| Full backtest, 1,301 test days, all methods and baselines | 1.0 s |
-| Score one day (point model + conformal interval), p50 / p95 | 0.39 / 0.56 ms |
-| Lexicon parse per headline, p50 | 0.09 ms |
-| SLM parse per headline (qwen2.5:3b), p50 / p95 | 1.8 / 1.9 s |
+</details>
 
 ## Repository layout
+
+<details>
+<summary><b>Show the tree</b></summary>
 
 ```
 main.py                    CLI entry (same as the `aegis` command)
@@ -163,8 +236,8 @@ src/aegis/
   config.py                typed, validated YAML config with --set overrides
   data/                    prices (yfinance + cache) · news store (as-of) · FOMC loader · synthetic world
   slm_parser.py            RiskSignal schema · masking · lexicon + Ollama backends · SQLite cache
-  features.py              HAR/EWMA/VIX features · targets · as-of signal aggregation · clipping
-  risk_engine.py           EWMA covariance · shock overlay · point/scale/quantile models
+  features.py              HAR / EWMA / VIX features · targets · as-of signal aggregation · clipping
+  risk_engine.py           EWMA covariance · shock overlay · point / scale / quantile models
   conformal_ncm.py         non-conformity scores · split / rolling / ACI · walk-forward runner
   baselines.py             Gaussian, historical-simulation and GARCH VaR
   metrics.py               coverage · Winkler · Kupiec · Christoffersen
@@ -172,10 +245,12 @@ src/aegis/
   report.py                metrics.json · figures · markdown report
   ablation.py · bench.py   text ablation · latency benchmark
 dashboard/app.py           Streamlit dashboard over reports/*
+scripts/                   make_readme_assets.py: regenerates every chart in this README
+docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
 tests/                     133 offline tests + network and live-SLM tests
 ```
 
-## Development
+</details>
 
 ```bash
 pytest
@@ -189,4 +264,8 @@ pytest -m "network or llm"
 ruff check . && ruff format --check .
 ```
 
-The default `pytest` run is offline. The `network` and `llm` markers add tests against yfinance, federalreserve.gov and a live Ollama model.
+The default `pytest` run is fully offline. The `network` and `llm` markers add tests against yfinance, federalreserve.gov and a live Ollama model. Every chart in this README is regenerated from saved runs by `python scripts/make_readme_assets.py`.
+
+## License
+
+[MIT](LICENSE) © 2026 Priyanshu Mishra
