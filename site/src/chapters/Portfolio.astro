@@ -19,6 +19,14 @@ const names: Record<string, string> = {
 };
 const tickers: string[] = meta.data.tickers;
 const yr = (d: string) => d.slice(0, 4);
+// Table view: each holding's index level where each period begins, and the latest week.
+const at = (d: string) => Math.max(0, prices.dates.findIndex((x) => x >= d));
+const marks = [
+  { name: `Start, ${yr(prices.dates[0])}`, i: 0 },
+  { name: `Calibration, ${yr(sp.cal.start)}`, i: at(sp.cal.start) },
+  { name: `Test, ${yr(sp.test.start)}`, i: at(sp.test.start) },
+  { name: `Latest, ${prices.dates.at(-1)}`, i: prices.dates.length - 1 },
+];
 const label = `Four price charts, weekly and indexed to 100, ${yr(prices.dates[0])}–${yr(prices.dates.at(-1)!)}. Dotted lines mark the start of the calibration period (${yr(sp.cal.start)}) and the test period (${yr(sp.test.start)}).`;
 ---
 <section class="chapter" id="portfolio" aria-labelledby="portfolio-h">
@@ -49,6 +57,19 @@ const label = `Four price charts, weekly and indexed to 100, ${yr(prices.dates[0
     >
       <SmallMultiples frame={prices} names={names} calStart={sp.cal.start} testStart={sp.test.start} label={label} />
       <SmallMultiples frame={prices} names={names} calStart={sp.cal.start} testStart={sp.test.start} label={label} narrow />
+      <table slot="table">
+        <thead>
+          <tr><th scope="col">Week</th>{tickers.map((t) => <th scope="col">{t}</th>)}</tr>
+        </thead>
+        <tbody>
+          {marks.map((mk) => (
+            <tr>
+              <td>{mk.name}</td>
+              {tickers.map((t) => <td>{(prices.series[t][mk.i] ?? 0).toFixed(0)}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </Exhibit>
   </div>
 
@@ -87,8 +108,6 @@ const label = `Four price charts, weekly and indexed to 100, ${yr(prices.dates[0
     list-style: none;
     padding: 0;
     margin: 0 0 var(--s1);
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
     border-top: 1px solid var(--rule);
   }
   .assets li {

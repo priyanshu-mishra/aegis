@@ -54,6 +54,15 @@ const k = Math.ceil((nCal + 1) * level - 1e-9);
         y={vol.series.y as number[]}
         mu={vol.series.mu as number[]}
       />
+      <table slot="table">
+        <caption class="visually-hidden">At the {pct(level, 0)} promise</caption>
+        <thead>
+          <tr><th scope="col">Year, at the {pct(level, 0)} promise</th><th scope="col">Held</th></tr>
+        </thead>
+        <tbody>
+          {Object.entries(sm.by_year).map(([yr, v]) => <tr><td>{yr}</td><td>{pct(v as number)}</td></tr>)}
+        </tbody>
+      </table>
     </Exhibit>
   </div>
 

@@ -17,7 +17,7 @@ const width = narrow ? 400 : 720;
 const height = narrow ? 300 : 380;
 const b = box(width, height, narrow ? { left: 38 } : {});
 const x = timeX(frame.dates, b);
-const y = logY(2.5, 110, b);
+const y = logY(2.5, 160, b);
 const s = frame.series;
 const pts = frame.dates.map((d, i) => {
   const lo = annual(s[`${method}_lo`][i]);
@@ -41,7 +41,7 @@ const ghostPts = ghost
   : [];
 const gUpper = ghostPts.map((p) => ({ ...p, y: p.hi }));
 const gLower = ghostPts.map((p) => ({ ...p, y: p.lo }));
-const yTicks = [5, 10, 20, 40, 80];
+const yTicks = [5, 10, 20, 40, 80, 160];
 const xTicks = x.ticks(narrow ? 4 : 6);
 const fmt = (d: Date) => d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
 const misses = pts.filter((p) => p.miss);

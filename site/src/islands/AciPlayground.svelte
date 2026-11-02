@@ -1,7 +1,7 @@
 <script lang="ts">
   // Exhibit F: ACI, live. After each outcome the working level α_t moves by γ: a miss widens the
   // next ranges, a hit narrows them. Re-runs the whole test period in the browser.
-  import { scaleLinear, scaleLog, scaleTime } from "d3-scale";
+  import { scaleLinear, scaleLog, scaleUtc } from "d3-scale";
   import { area, line } from "d3-shape";
   import { quantileSorted, runAci, scores } from "../lib/conformal";
   import { alpha, LEVELS } from "../lib/state";
@@ -47,8 +47,8 @@
   // Chart 1: the focus year, ACI range against the fixed textbook range.
   const H1 = $derived(narrow ? 260 : 330);
   const m = { top: 12, right: 12, bottom: 28, left: 40 };
-  const x1 = $derived(scaleTime().domain([new Date(dates[fIdx[0]]), new Date(dates[fIdx.at(-1)!])]).range([m.left, w - m.right]));
-  const y1 = $derived(scaleLog().domain([2.5, 110]).range([H1 - m.bottom, m.top]).clamp(true));
+  const x1 = $derived(scaleUtc().domain([new Date(dates[fIdx[0]]), new Date(dates[fIdx.at(-1)!])]).range([m.left, w - m.right]));
+  const y1 = $derived(scaleLog().domain([2.5, 160]).range([H1 - m.bottom, m.top]).clamp(true));
   const pts = $derived(fIdx.map((i) => ({
     x: x1(new Date(dates[i])),
     lo: y1(ann(run.lo[i])),
@@ -67,7 +67,15 @@
 
   // Chart 2: the working level α_t over the whole test period.
   const H2 = 150;
-  const x2 = $derived(scaleTime().domain([new Date(dates[0]), new Date(dates.at(-1)!)]).range([m.left, w - m.right]));
+  const x2 = $derived(scaleUtc().domain([new Date(dates[0]), new Date(dates.at(-1)!)]).range([m.left, w - m.right]));
+  // Years labelled at mid-year, so the first, partial year (the crash) gets its label.
+  const yFirst = +dates[0].slice(0, 4), yLast = +dates.at(-1)!.slice(0, 4);
+  const years = $derived(
+    Array.from({ length: yLast - yFirst + 1 }, (_, i) => yFirst + i)
+      .filter((_, i) => !narrow || i % 2 === 0)
+      .map((yr) => ({ yr, x: x2(new Date(Date.UTC(yr, 6, 1))) }))
+      .filter((t) => t.x >= m.left && t.x <= w - m.right),
+  );
   const aMax = $derived(Math.max($alpha * 2.2, ...run.alphaPath));
   const aMin = $derived(Math.min(0, ...run.alphaPath));
   const y2 = $derived(scaleLinear().domain([aMin, aMax]).nice().range([H2 - m.bottom, m.top]));
@@ -93,7 +101,7 @@
 
   <svg viewBox={`0 0 ${w} ${H1}`} width={w} height={H1} role="img"
     aria-label={`${focusYear}: realized volatility against the adaptive range (held on ${pc(stats.aciYear)} of days) and the fixed range (${pc(stats.splitYear)}).`}>
-    {#each [5, 10, 20, 40, 80] as t}
+    {#each [5, 10, 20, 40, 80, 160] as t}
       <line x1={m.left} x2={w - m.right} y1={y1(t)} y2={y1(t)} class="grid" />
       <text x={m.left - 6} y={y1(t)} class="tick" text-anchor="end" dominant-baseline="middle">{t}%</text>
     {/each}
@@ -125,8 +133,8 @@
     {/each}
     <line x1={m.left} x2={w - m.right} y1={y2($alpha)} y2={y2($alpha)} class="target" />
     <path d={aPath} class="realized" />
-    {#each x2.ticks(narrow ? 4 : 7) as t}
-      <text x={x2(t)} y={H2 - 8} class="tick" text-anchor="middle">{t.getUTCFullYear()}</text>
+    {#each years as t}
+      <text x={t.x} y={H2 - 8} class="tick" text-anchor="middle">{t.yr}</text>
     {/each}
   </svg>
   <p class="axis-note">The working level α<sub>t</sub>, {dates[0].slice(0, 4)}–{dates.at(-1)!.slice(0, 4)}. Dashed: the promised {pc($alpha, 0)}. When it dips, the model has been missing and widens its ranges.</p>

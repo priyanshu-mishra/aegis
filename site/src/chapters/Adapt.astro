@@ -53,6 +53,16 @@ const t = vm.mondrian.by_tercile;
         defaultGamma={golden.gamma}
         focusYear={firstYear}
       />
+      <table slot="table">
+        <thead>
+          <tr><th scope="col">Year, at the {pct(level, 0)} promise</th><th scope="col">Adaptive held</th><th scope="col">Fixed held</th></tr>
+        </thead>
+        <tbody>
+          {Object.entries(vm.aci.by_year).map(([yr, v]) => (
+            <tr><td>{yr}</td><td>{pct(v as number)}</td><td>{pct(vm.split_absolute.by_year[yr])}</td></tr>
+          ))}
+        </tbody>
+      </table>
     </Exhibit>
   </div>
 

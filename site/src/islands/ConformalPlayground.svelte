@@ -78,19 +78,19 @@
         class={(i + 0.5) * bw > q ? "bar out" : "bar"} />
     {/each}
     <line x1={x(q)} x2={x(q)} y1={m.top - 10} y2={H - m.bottom} class="cut" />
-    <text x={x(q) + (x(q) > w * 0.7 ? -6 : 6)} y={m.top - 2} class="label" text-anchor={x(q) > w * 0.7 ? "end" : "start"}>
-      cut-off q̂ = {q.toFixed(2)}, {outside} of {sorted.length} days beyond
+    <text x={x(q) + (x(q) > w * (narrow ? 0.5 : 0.7) ? -6 : 6)} y={m.top - 2} class="label" text-anchor={x(q) > w * (narrow ? 0.5 : 0.7) ? "end" : "start"}>
+      {narrow ? `q̂ = ${q.toFixed(2)}, ${outside} days beyond` : `cut-off q̂ = ${q.toFixed(2)}, ${outside} of ${sorted.length} days beyond`}
     </text>
     {#each x.ticks(narrow ? 4 : 8) as t}
       <text x={x(t)} y={H - 10} class="tick" text-anchor="middle">{t}</text>
     {/each}
   </svg>
-  <p class="axis-note">Size of each past miss (distance between forecast and outcome, log scale), {calYears}. Bar height: days.</p>
+  <p class="axis-note">Size of each past miss (distance between forecast and outcome, in log units), {calYears}. Bar height: days.</p>
 
   <dl class="readout">
     <div><dt>Range around each forecast</dt><dd>÷{Math.exp(q).toFixed(2)} to ×{Math.exp(q).toFixed(2)}</dd></div>
     <div><dt>Promised</dt><dd>{pc(target, 0)}</dd></div>
-    <div><dt>Held on test days, {years[0]}–{years.at(-1)}</dt><dd class:short={held.all < target - 0.005}>{pc(held.all)}</dd></div>
+    <div><dt>Held on test days, {years[0]}–{years.at(-1)}</dt><dd class:short={held.all < target - 0.02}>{pc(held.all)}</dd></div>
   </dl>
 
   <svg viewBox={`0 0 ${w} ${YH}`} width={w} height={YH} role="img"
@@ -106,7 +106,6 @@
       {@const v = held.byYear[i]}
       {@const miss = v < target - 0.02}
       <text x={cx.range()[0] - 10} y={cy} class="name" text-anchor="end" dominant-baseline="middle">{yr}</text>
-      <line x1={cx(target)} x2={cx(Math.max(0.7, v))} y1={cy} y2={cy} class="stem" />
       <circle cx={cx(Math.max(0.7, v))} {cy} r="5" class={miss ? "dot miss" : "dot"} />
       <text x={cx(Math.max(0.7, v)) + (v < target ? -10 : 10)} y={cy} class="val" text-anchor={v < target ? "end" : "start"} dominant-baseline="middle">{pc(v)}</text>
     {/each}
@@ -169,10 +168,6 @@
   .target {
     stroke: var(--ink);
     stroke-dasharray: 4 3;
-  }
-  .stem {
-    stroke: var(--rule);
-    stroke-width: 2;
   }
   .dot {
     fill: var(--ink);

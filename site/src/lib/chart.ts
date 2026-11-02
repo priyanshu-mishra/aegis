@@ -1,5 +1,5 @@
 // Pure SVG path helpers for build-time exhibits (no DOM needed).
-import { scaleLog, scaleTime, scaleLinear } from "d3-scale";
+import { scaleLog, scaleUtc, scaleLinear } from "d3-scale";
 import { area, line } from "d3-shape";
 
 export interface Box {
@@ -22,7 +22,7 @@ export const box = (width: number, height: number, m: Partial<Box> = {}): Box =>
 });
 
 export function timeX(dates: string[], b: Box) {
-  return scaleTime()
+  return scaleUtc()
     .domain([new Date(dates[0]), new Date(dates[dates.length - 1])])
     .range([b.left, b.width - b.right]);
 }

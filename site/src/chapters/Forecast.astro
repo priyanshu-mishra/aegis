@@ -31,6 +31,16 @@ const steps = [
   { name: "Learned model", how: "A ridge regression on daily, weekly and monthly volatility, EWMA and the VIX.", e: rmse((i) => mu[i]) },
 ];
 const factor = (e: number) => Math.exp(e).toFixed(2);
+// Table view: the typical miss of the smoothed average and the learned model, year by year.
+const testYears = [...new Set(vol.dates.map((d) => d.slice(0, 4)))];
+const yearly = testYears.map((yr) => {
+  const inYear = (i: number) => vol.dates[i].startsWith(yr);
+  return {
+    yr,
+    ewma: rmse((i) => (inYear(i) ? ewma[i] : null)),
+    model: rmse((i) => (inYear(i) ? mu[i] : null)),
+  };
+});
 const best = factor(steps.at(-1)!.e);
 const label = `Forecast and realized volatility, ${firstYear}–${lastYear}. The forecast follows the broad level but misses the spikes.`;
 ---
@@ -76,6 +86,14 @@ const label = `Forecast and realized volatility, ${firstYear}–${lastYear}. The
     >
       <ForecastChart frame={vol} label={label} />
       <ForecastChart frame={vol} label={label} narrow />
+      <table slot="table">
+        <thead>
+          <tr><th scope="col">Year</th><th scope="col">Smoothed average</th><th scope="col">Learned model</th></tr>
+        </thead>
+        <tbody>
+          {yearly.map((r) => <tr><td>{r.yr}</td><td>×{factor(r.ewma)}</td><td>×{factor(r.model)}</td></tr>)}
+        </tbody>
+      </table>
     </Exhibit>
   </div>
 

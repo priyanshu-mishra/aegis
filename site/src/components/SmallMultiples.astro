@@ -1,7 +1,7 @@
 ---
 // One small panel per asset (weekly, indexed to 100, log scale), with the study's three periods
 // marked: fit the model, calibrate the ranges, then test on unseen days.
-import { scaleLog, scaleTime } from "d3-scale";
+import { scaleLog, scaleUtc } from "d3-scale";
 import { line } from "d3-shape";
 import type { Frame } from "../lib/data";
 
@@ -23,17 +23,21 @@ const rows = Math.ceil(keys.length / cols);
 const H = rows * ph + 22;
 const m = { top: 30, right: 14, bottom: 10, left: 40 };
 const dates = frame.dates.map((d) => new Date(d));
-const x = scaleTime().domain([dates[0], dates.at(-1)!]).range([m.left, pw - m.right]);
+const x = scaleUtc().domain([dates[0], dates.at(-1)!]).range([m.left, pw - m.right]);
 const panels = keys.map((k, i) => {
   const vals = frame.series[k];
   const fin = vals.filter((v): v is number => v != null && v > 0);
-  const y = scaleLog().domain([Math.min(...fin), Math.max(...fin)]).nice().range([ph - m.bottom, m.top]);
+  const y = scaleLog().domain([Math.min(...fin) / 1.08, Math.max(...fin) * 1.08]).range([ph - m.bottom, m.top]);
   const d = line<number | null>()
     .defined((v) => v != null && v > 0)
     .x((_, j) => x(dates[j]))
     .y((v) => y(v as number))(vals) ?? "";
   const last = fin.at(-1)!;
-  return { k, i, y, d, last, ticks: y.ticks(3).filter((_, j, a) => a.length <= 4 || j % 2 === 0) };
+  // Round log ticks, dropped when closer than 16px to the one below, so labels never collide.
+  const cand = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter((t) => t >= y.domain()[0] && t <= y.domain()[1]);
+  const ticks: number[] = [];
+  for (const t of cand) if (!ticks.length || y(ticks.at(-1)!) - y(t) >= 16) ticks.push(t);
+  return { k, i, y, d, last, ticks };
 });
 const xc = x(new Date(calStart));
 const xt = x(new Date(testStart));
@@ -61,9 +65,11 @@ const years = x.ticks(narrow ? 3 : 4);
     })
   }
   {
-    years.map((t) => (
-      <text x={x(t)} y={H - 4} class="tick" text-anchor="middle">{t.getUTCFullYear()}</text>
-    ))
+    Array.from({ length: cols }, (_, c) =>
+      years.map((t) => (
+        <text x={c * pw + x(t)} y={H - 4} class="tick" text-anchor="middle">{t.getUTCFullYear()}</text>
+      )),
+    )
   }
 </svg>
 

@@ -1,6 +1,6 @@
 ---
 // The point forecast against what happened, over the whole test period (annualized, log scale).
-import { scaleLog, scaleTime } from "d3-scale";
+import { scaleLog, scaleUtc } from "d3-scale";
 import { line } from "d3-shape";
 import { annual, type Frame } from "../lib/data";
 
@@ -14,8 +14,14 @@ const W = narrow ? 400 : 720;
 const H = narrow ? 240 : 300;
 const m = { top: 12, right: 12, bottom: 28, left: 40 };
 const dates = frame.dates.map((d) => new Date(d));
-const x = scaleTime().domain([dates[0], dates.at(-1)!]).range([m.left, W - m.right]);
-const y = scaleLog().domain([2.5, 110]).range([H - m.bottom, m.top]).clamp(true);
+const x = scaleUtc().domain([dates[0], dates.at(-1)!]).range([m.left, W - m.right]);
+// Years are labelled at mid-year so the first, partial year (2020) gets its label.
+const y0 = dates[0].getUTCFullYear(), y1 = dates.at(-1)!.getUTCFullYear();
+const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
+  .filter((yr, i) => !narrow || i % 2 === 0)
+  .map((yr) => ({ yr, x: x(new Date(Date.UTC(yr, 6, 1))) }))
+  .filter((t) => t.x >= m.left && t.x <= W - m.right);
+const y = scaleLog().domain([2.5, 160]).range([H - m.bottom, m.top]).clamp(true);
 const path = (k: string) =>
   line<number | null>()
     .defined((v) => v != null)
@@ -24,14 +30,14 @@ const path = (k: string) =>
 ---
 <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
   {
-    [5, 10, 20, 40, 80].map((t) => (
+    [5, 10, 20, 40, 80, 160].map((t) => (
       <g>
         <line x1={m.left} x2={W - m.right} y1={y(t)} y2={y(t)} class="grid" />
         <text x={m.left - 6} y={y(t)} class="tick" text-anchor="end" dominant-baseline="middle">{t}%</text>
       </g>
     ))
   }
-  {x.ticks(narrow ? 4 : 7).map((t) => <text x={x(t)} y={H - 8} class="tick" text-anchor="middle">{t.getUTCFullYear()}</text>)}
+  {years.map((t) => <text x={t.x} y={H - 8} class="tick" text-anchor="middle">{t.yr}</text>)}
   <path d={path("y")} class="realized" />
   <path d={path("mu")} class="forecast" />
 </svg>
