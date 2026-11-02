@@ -7,8 +7,8 @@ __pycache__/
 .hypothesis/
 
 # Generated data and outputs
-data/
-reports/
+/data/
+/reports/
 
 .DS_Store
 .remember/
