@@ -1,0 +1,154 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import ForecastChart from "../components/ForecastChart.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import { load, type Frame } from "../lib/data";
+
+const meta = load("meta");
+const vol = load<Frame>("vol");
+const { y, mu, ewma_log_vol: ewma } = vol.series;
+const h: number = meta.horizon;
+const firstYear = meta.splits.test.start.slice(0, 4);
+const lastYear = meta.splits.test.end.slice(0, 4);
+
+// Typical miss of each forecast on the test period: root mean squared error in log volatility.
+function rmse(pred: (i: number) => number | null) {
+  let s = 0, n = 0;
+  for (let i = 0; i < y.length; i++) {
+    const p = pred(i), v = y[i];
+    if (p != null && v != null) { s += (p - v) ** 2; n++; }
+  }
+  return Math.sqrt(s / n);
+}
+// Last week's realized volatility is known on day t: the target that ended h days ago.
+const steps = [
+  { name: "Last week's volatility", how: "Assume the coming week looks like the one just gone.", e: rmse((i) => (i >= h ? y[i - h] : null)) },
+  { name: "Smoothed average (EWMA)", how: "Weight recent days more, older days less: the RiskMetrics recipe.", e: rmse((i) => ewma[i]) },
+  { name: "Learned model", how: "A ridge regression on daily, weekly and monthly volatility, EWMA and the VIX.", e: rmse((i) => mu[i]) },
+];
+const factor = (e: number) => Math.exp(e).toFixed(2);
+const best = factor(steps.at(-1)!.e);
+const label = `Forecast and realized volatility, ${firstYear}–${lastYear}. The forecast follows the broad level but misses the spikes.`;
+---
+<section class="chapter" id="forecast" aria-labelledby="forecast-h">
+  <ChapterOpener n="3" title="A forecast" minutes={2} question="How do you predict next week's volatility?" hid="forecast-h" />
+
+  <div class="prose">
+    <p>
+      Volatility is the easiest thing in finance to forecast, because it clusters: a bumpy week is
+      usually followed by another. I built up the forecast in three steps, each judged by its typical
+      miss on the test period.
+    </p>
+  </div>
+
+  <table class="ladder">
+    <caption class="visually-hidden">Typical forecast miss for three methods</caption>
+    <thead>
+      <tr><th scope="col">Method</th><th scope="col" class="num">Typical miss</th></tr>
+    </thead>
+    <tbody>
+      {
+        steps.map((s, i) => (
+          <tr class={i === steps.length - 1 ? "focus" : ""}>
+            <th scope="row">{s.name}<span class="how">{s.how}</span></th>
+            <td class="num">×{factor(s.e)}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+  <p class="table-note">
+    “×{best}” means the forecast is typically off by a factor of {best} in either direction: a
+    forecast of 10% usually lands between about {(10 / +best).toFixed(1)}% and {(10 * +best).toFixed(0)}%.
+    Test period, {firstYear}–{lastYear}.
+  </p>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="D"
+      title="The learned forecast against what happened"
+      source={`Forecast (black) and realized (grey) 5-day portfolio volatility, annualized, log scale, ${firstYear}–${lastYear}. Each forecast was made with data up to that day only.`}
+      id="exhibit-d"
+    >
+      <ForecastChart frame={vol} label={label} />
+      <ForecastChart frame={vol} label={label} narrow />
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      The learned model is the best of the three, but look at the spikes: the forecast is a smooth
+      line through a jagged world. Any single number will be wrong, often by a lot. The useful question
+      is not “how good is the forecast?” but “how wrong could it be, and can I say so honestly?”
+      That is what the next chapter adds.
+    </p>
+  </div>
+
+  <PractitionerNotes>
+    <p>
+      Target: log of realized daily volatility over t+1…t+{h}, √(mean r²). Features at the close of t:
+      HAR components (1, 5 and 22-day realized volatility), EWMA portfolio and asset volatilities
+      (λ = 0.94), and the VIX level and 5-day change. Ridge regression, fitted once on the training
+      period (out-of-fold RMSE {meta.model.oof_rmse.toFixed(3)}). Typical miss is exp(RMSE) in log volatility;
+      RMSE values: {steps.map((s) => s.e.toFixed(3)).join(", ")}. A HAR model and LightGBM were also
+      tried; ridge was best out of sample.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions
+    items={[
+      { id: "ewma", term: "EWMA", def: "Exponentially weighted moving average: recent days count more. Used by RiskMetrics since 1994." },
+    ]}
+  />
+  <Pager id="forecast" />
+</section>
+
+<style>
+  .ladder {
+    width: 100%;
+    max-width: var(--measure);
+    border-collapse: collapse;
+    margin: var(--s1) 0 0;
+    font-size: 1rem;
+  }
+  .ladder thead th {
+    font-size: var(--step--1);
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.08em;
+    text-align: left;
+    border-bottom: 1px solid var(--rule-strong);
+    padding-bottom: var(--s-1);
+  }
+  .ladder tbody th,
+  .ladder td {
+    padding: var(--s0) 0;
+    border-bottom: 1px solid var(--rule);
+    vertical-align: top;
+    text-align: left;
+    font-weight: 400;
+  }
+  .ladder .num {
+    text-align: right;
+    white-space: nowrap;
+    padding-left: var(--s1);
+  }
+  .how {
+    display: block;
+    font-size: var(--step--1);
+    color: var(--ink-3);
+  }
+  .focus th,
+  .focus td {
+    font-weight: 600;
+  }
+  .table-note {
+    max-width: var(--measure);
+    margin-top: var(--s0);
+    font-size: var(--step--1);
+    color: var(--ink-3);
+  }
+</style>

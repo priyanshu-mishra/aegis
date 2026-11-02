@@ -6,7 +6,8 @@
     "dev": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "check": "astro check"
+    "check": "astro check",
+    "test": "node --experimental-strip-types --no-warnings --test tests/conformal.test.ts"
   },
   "dependencies": {
     "@astrojs/svelte": "^7.2.5",

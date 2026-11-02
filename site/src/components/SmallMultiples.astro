@@ -1,0 +1,99 @@
+---
+// One small panel per asset (weekly, indexed to 100, log scale), with the study's three periods
+// marked: fit the model, calibrate the ranges, then test on unseen days.
+import { scaleLog, scaleTime } from "d3-scale";
+import { line } from "d3-shape";
+import type { Frame } from "../lib/data";
+
+interface Props {
+  frame: Frame;
+  names: Record<string, string>;
+  calStart: string;
+  testStart: string;
+  label: string;
+  narrow?: boolean;
+}
+const { frame, names, calStart, testStart, label, narrow = false } = Astro.props;
+const keys = Object.keys(names);
+const cols = narrow ? 1 : 2;
+const W = narrow ? 400 : 720;
+const pw = W / cols;
+const ph = narrow ? 150 : 170;
+const rows = Math.ceil(keys.length / cols);
+const H = rows * ph + 22;
+const m = { top: 30, right: 14, bottom: 10, left: 40 };
+const dates = frame.dates.map((d) => new Date(d));
+const x = scaleTime().domain([dates[0], dates.at(-1)!]).range([m.left, pw - m.right]);
+const panels = keys.map((k, i) => {
+  const vals = frame.series[k];
+  const fin = vals.filter((v): v is number => v != null && v > 0);
+  const y = scaleLog().domain([Math.min(...fin), Math.max(...fin)]).nice().range([ph - m.bottom, m.top]);
+  const d = line<number | null>()
+    .defined((v) => v != null && v > 0)
+    .x((_, j) => x(dates[j]))
+    .y((v) => y(v as number))(vals) ?? "";
+  const last = fin.at(-1)!;
+  return { k, i, y, d, last, ticks: y.ticks(3).filter((_, j, a) => a.length <= 4 || j % 2 === 0) };
+});
+const xc = x(new Date(calStart));
+const xt = x(new Date(testStart));
+const years = x.ticks(narrow ? 3 : 4);
+---
+<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    panels.map((p) => {
+      const ox = (p.i % cols) * pw;
+      const oy = Math.floor(p.i / cols) * ph;
+      return (
+        <g transform={`translate(${ox},${oy})`}>
+          <text x={m.left} y="14" class="name">{p.k}<tspan class="plain"> {names[p.k]}</tspan></text>
+          {p.ticks.map((t) => (
+            <g>
+              <line x1={m.left} x2={pw - m.right} y1={p.y(t)} y2={p.y(t)} class="grid" />
+              <text x={m.left - 6} y={p.y(t)} class="tick" text-anchor="end" dominant-baseline="middle">{t}</text>
+            </g>
+          ))}
+          <line x1={xc} x2={xc} y1={m.top - 6} y2={ph - m.bottom} class="period" />
+          <line x1={xt} x2={xt} y1={m.top - 6} y2={ph - m.bottom} class="period" />
+          <path d={p.d} class="price" />
+        </g>
+      );
+    })
+  }
+  {
+    years.map((t) => (
+      <text x={x(t)} y={H - 4} class="tick" text-anchor="middle">{t.getUTCFullYear()}</text>
+    ))
+  }
+</svg>
+
+<style>
+  .grid {
+    stroke: var(--rule);
+  }
+  .period {
+    stroke: var(--ink-3);
+    stroke-dasharray: 2 3;
+  }
+  .price {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.25;
+    stroke-linejoin: round;
+  }
+  .tick {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .name {
+    font-size: 14px;
+    font-weight: 600;
+    fill: var(--ink);
+    font-family: var(--serif);
+  }
+  .plain {
+    font-weight: 400;
+    fill: var(--ink-2);
+  }
+</style>

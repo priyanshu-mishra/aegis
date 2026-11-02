@@ -1,0 +1,110 @@
+/* Shared chapter layout: reading column, wide exhibits, definitions, pager, contents. */
+.chapter {
+  max-width: 50rem;
+  margin: 0 auto;
+  padding: var(--s4) var(--s3);
+}
+.prose {
+  max-width: var(--measure);
+}
+.exhibit-wide {
+  margin: var(--s3) 0;
+}
+
+.defs-h {
+  margin: var(--s3) 0 var(--s0);
+  font-size: var(--step--1);
+  font-weight: 600;
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+}
+.defs {
+  max-width: var(--measure);
+  margin: 0;
+  font-size: var(--step--1);
+  color: var(--ink-2);
+  columns: 2;
+  column-gap: var(--s3);
+}
+.defs div {
+  break-inside: avoid;
+  margin-bottom: var(--s0);
+}
+.defs dt {
+  font-weight: 600;
+  color: var(--ink);
+  display: inline;
+}
+.defs dt::after {
+  content: ". ";
+}
+.defs dd {
+  display: inline;
+  margin: 0;
+}
+.defs div:target {
+  background: var(--wash);
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s2);
+  margin-top: var(--s3);
+  padding-top: var(--s0);
+  border-top: 1px solid var(--rule-strong);
+  font-size: 1rem;
+}
+.pager a {
+  text-decoration: none;
+}
+.pager a:hover {
+  text-decoration: underline;
+}
+.pager .sc {
+  display: block;
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+.pager .next {
+  text-align: right;
+}
+
+.contents h2 {
+  font-size: var(--step-2);
+  font-weight: 600;
+  border-top: 3px double var(--rule-strong);
+  padding-top: var(--s2);
+}
+.pending-note {
+  margin-top: var(--s0);
+  color: var(--ink-3);
+  font-style: italic;
+}
+.contents ol {
+  list-style: none;
+  padding: 0;
+  margin: var(--s1) 0 0;
+  columns: 2;
+  column-gap: var(--s3);
+  color: var(--ink-3);
+}
+.contents li {
+  padding: var(--s-1) 0;
+  border-bottom: 1px solid var(--rule);
+  break-inside: avoid;
+}
+.contents .n {
+  display: inline-block;
+  min-width: 1.75em;
+}
+
+@media (max-width: 960px) {
+  .chapter {
+    padding: var(--s3) var(--s1);
+  }
+  .defs,
+  .contents ol {
+    columns: 1;
+  }
+}

@@ -1,0 +1,87 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import ConformalPlayground from "../islands/ConformalPlayground.svelte";
+import { load, pct, type Frame } from "../lib/data";
+
+const meta = load("meta");
+const metrics = load("metrics");
+const golden = load("golden");
+const cal = load<Frame>("calibration");
+const vol = load<Frame>("vol");
+const sm = metrics.vol.split_absolute;
+const calYears = `${meta.splits.cal.start.slice(0, 4)}–${meta.splits.cal.end.slice(0, 4)}`;
+const firstYear = meta.splits.test.start.slice(0, 4);
+const level = 1 - meta.alpha;
+const nCal: number = meta.splits.cal.rows;
+const k = Math.ceil((nCal + 1) * level - 1e-9);
+---
+<section class="chapter" id="intervals" aria-labelledby="intervals-h">
+  <ChapterOpener n="4" title="Honest intervals" minutes={3} question="How do you turn a guess into a range you can trust?" hid="intervals-h" />
+
+  <div class="prose">
+    <p>
+      Here is the idea behind <Term id="conformal-split" title="Split conformal prediction: set the range from the forecast's errors on a held-out period.">split conformal prediction</Term>,
+      in three steps. Run the forecast over a period it was not trained on, here {calYears}, and
+      write down how far off it was each day. Sort those {nCal} misses from smallest to largest.
+      To promise {pct(level, 0)}, take the {k}th smallest and put a range that wide around every future
+      forecast.
+    </p>
+    <p>
+      If the future behaves like the calibration years, the range will hold on at least {pct(level, 0)}
+      of days. That guarantee is mathematical, not a modelling assumption, and it needs nothing about
+      the shape of returns. Try it: move the promise and watch the cut-off and the test result change.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="E"
+      title="Set the cut-off from past misses, then check it on the future"
+      source={`Absolute errors of the log-volatility forecast on ${nCal} calibration days (${calYears}); the cut-off is applied to ${meta.splits.test.rows.toLocaleString("en-GB")} test days. Computed in your browser; the code reproduces the Python reference values exactly. The promise you set here also drives Exhibit F.`}
+      id="exhibit-e"
+    >
+      <ConformalPlayground
+        client:visible
+        calY={cal.series.y as number[]}
+        calMu={cal.series.mu as number[]}
+        calYears={calYears}
+        dates={vol.dates}
+        y={vol.series.y as number[]}
+        mu={vol.series.mu as number[]}
+      />
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      At {pct(level, 0)} the textbook method held on {pct(sm.coverage)} of test days: close, but short.
+      The year strip shows where it went wrong. In {firstYear} it held on only {pct(sm.by_year[firstYear])}
+      of days. The calibration years were calm; {firstYear} was not. The guarantee assumes the future is
+      exchangeable with the past, and a pandemic broke that assumption.
+    </p>
+  </div>
+
+  <PractitionerNotes>
+    <p>
+      Score S = |y − μ̂| on log volatility; q̂ is the ⌈(n+1)(1−α)⌉-th smallest calibration score, giving
+      [μ̂ − q̂, μ̂ + q̂], i.e. a multiplicative range on volatility. At α = {meta.alpha}, q̂ =
+      {" "}{golden.levels[String(meta.alpha)].split_q.toFixed(4)}. Coverage is guaranteed marginally under
+      exchangeability, which overlapping 5-day targets and regime shifts both violate. Normalized
+      scores and conformalized quantile regression were also tested: {pct(metrics.vol.split_normalized.coverage)} and
+      {" "}{pct(metrics.vol.cqr.coverage)} overall.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions
+    items={[
+      { id: "conformal-split", term: "Split conformal", def: "Set the range from the forecast's sorted errors on a period it was not trained on." },
+      { id: "exchangeable", term: "Exchangeable", def: "The order of the days does not matter: tomorrow looks like a random draw from the past." },
+    ]}
+  />
+  <Pager id="intervals" />
+</section>

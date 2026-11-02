@@ -4,10 +4,12 @@ import RedHerring from "../components/RedHerring.astro";
 import RunningHead from "../components/RunningHead.astro";
 import Exhibit from "../components/Exhibit.astro";
 import IntervalChart from "../components/IntervalChart.astro";
-import BreachChart from "../components/BreachChart.astro";
-import ChapterOpener from "../components/ChapterOpener.astro";
-import Term from "../components/Term.astro";
-import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Why from "../chapters/Why.astro";
+import Portfolio from "../chapters/Portfolio.astro";
+import Forecast from "../chapters/Forecast.astro";
+import Intervals from "../chapters/Intervals.astro";
+import Adapt from "../chapters/Adapt.astro";
+import { chapters } from "../lib/chapters";
 import { annual, formatDate, load, pct, slice, type Frame } from "../lib/data";
 
 const meta = load("meta");
@@ -36,48 +38,9 @@ const months = [...new Set(y2020.dates.map((d) => d.slice(0, 7)))].map((ym) => {
 const monthName = (ym: string) =>
   new Date(ym + "-01T00:00:00Z").toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 
-// March 2020 in one sentence: the calmest and the wildest day around the crash.
-const febMar = slice(vol, "2020-02-01", "2020-03-31");
-const ann = febMar.series.y.map((x) => annual(x)!);
-const calm = Math.min(...ann.slice(0, ann.findIndex((_, i) => febMar.dates[i] >= "2020-02-15")));
-const wild = Math.max(...ann);
-const wildDay = febMar.dates[ann.indexOf(wild)];
-
-// Exhibit B rows: 99% one-day VaR breach rate per model, with the Kupiec verdict.
-const varNames: Record<string, string> = {
-  gaussian_var: "Normal distribution (RiskMetrics)",
-  hist_var: "Historical simulation",
-  garch_var: "GARCH(1,1)",
-  gjr_var: "GJR-GARCH",
-  fhs_var: "Filtered historical simulation",
-  split_var: "Conformal, split",
-  rolling_var: "Conformal, rolling",
-  dtaci_var: "Conformal, DtACI",
-  aci_var: "Conformal, ACI",
-};
-const breachRows = Object.entries(varNames).map(([k, name]) => ({
-  name,
-  rate: v99[k].breach_rate,
-  rejected: v99[k].kupiec_p < 0.05,
-  focus: k === "aci_var",
-}));
 const rmBreach = v99.gaussian_var.breach_rate;
 const aciBreach = v99.aci_var.breach_rate;
-
-const chapters = [
-  { n: "0", id: "cover", title: "Summary", ready: true },
-  { n: "1", id: "why", title: "Why this matters", ready: true },
-  { n: "2", id: "portfolio", title: "The portfolio", ready: false },
-  { n: "3", id: "forecast", title: "A forecast", ready: false },
-  { n: "4", id: "intervals", title: "Honest intervals", ready: false },
-  { n: "5", id: "adapt", title: "When markets shift", ready: false },
-  { n: "6", id: "tails", title: "Tail risk", ready: false },
-  { n: "7", id: "regulator", title: "The regulator's view", ready: false },
-  { n: "8", id: "sizing", title: "Sizing positions", ready: false },
-  { n: "9", id: "text", title: "Do words help?", ready: false },
-  { n: "10", id: "risk-factors", title: "Risk factors", ready: false },
-  { n: "11", id: "checks", title: "How it was checked", ready: false },
-];
+const wild = Math.max(...y2020.series.y.map((x) => annual(x) ?? 0));
 
 const findings = [
   {
@@ -100,7 +63,6 @@ const findings = [
   },
 ];
 const exhibitALabel = `Line chart of realized volatility in ${firstYear} with a shaded forecast range; the range widens in March as volatility jumps to ${wild.toFixed(0)}%.`;
-const exhibitBLabel = `Dot plot of breach rates. The normal-distribution model was breached on ${pct(rmBreach, 2)} of days; adaptive conformal on ${pct(aciBreach, 2)}.`;
 const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
 ---
 <Base
@@ -199,122 +161,11 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
       </div>
     </section>
 
-    <section class="chapter" id="why" aria-labelledby="why-h">
-      <ChapterOpener
-        n="1"
-        title="Why this matters"
-        minutes={3}
-        question="What is a risk forecast worth if you cannot tell when it is wrong?"
-        hid="why-h"
-      />
-
-      <div class="prose">
-        <p>
-          A weather forecaster who says “70% chance of rain” is doing their job well if it rains on
-          about 70% of those days. Forecasters call this being <Term
-            id="calibration"
-            title="A forecast is calibrated when the things it says happen X% of the time do happen X% of the time.">calibrated</Term
-          >. Nobody expects them to be right every day, only to be honest about how sure they are.
-        </p>
-        <p>
-          Risk models make the same kind of promise. A bank's model might say: on 99 days out of 100,
-          this portfolio will not lose more than a certain amount. That amount is the <Term
-            id="var"
-            title="Value at Risk: a loss level the portfolio should stay above on a stated share of days."
-            >Value at Risk</Term
-          >, and the day it is exceeded is a <Term
-            id="breach"
-            title="A day the actual loss was worse than the model's stated limit.">breach</Term
-          >. Regulators count those breaches. Capital, position limits and bonuses depend on them.
-        </p>
-        <p>
-          The trouble is that most models are calibrated on calm data and then meet a crash. In {firstYear}
-          the portfolio's volatility went from {calm.toFixed(0)}% in early February to {wild.toFixed(0)}% on
-          {formatDate(wildDay)}. A model that was honest in 2019 suddenly was not, and the textbook fix
-          for this, which I test in chapter 4, held its {pct(level, 0)} promise on only {pct(vm.split_absolute.by_year[firstYear])}
-          of days that year.
-        </p>
-      </div>
-
-      <div class="exhibit-wide">
-        <Exhibit
-          letter="B"
-          title="How often each model's 99% loss limit was breached, against the 1% it promised"
-          source={`One-day 99% Value at Risk for the same portfolio, ${firstYear}–${lastYear}, ${testDays.toLocaleString("en-GB")} days. “Rejected” means the Kupiec test says the breach rate is too far from 1% to be luck (p < 0.05). Red dots: rejected models. Black dot: the adaptive conformal model this study builds.`}
-          id="exhibit-b"
-        >
-          <BreachChart rows={breachRows} target={0.01} label={exhibitBLabel} />
-          <BreachChart rows={breachRows} target={0.01} label={exhibitBLabel} narrow />
-          <table slot="table">
-            <thead>
-              <tr>
-                <th scope="col">Model</th>
-                <th scope="col">Breach rate</th>
-                <th scope="col">Kupiec p</th>
-              </tr>
-            </thead>
-            <tbody>
-              {
-                Object.entries(varNames).map(([k, name]) => (
-                  <tr>
-                    <td>{name}</td>
-                    <td>{pct(v99[k].breach_rate, 2)}</td>
-                    <td>{v99[k].kupiec_p.toFixed(3)}</td>
-                  </tr>
-                ))
-              }
-            </tbody>
-          </table>
-        </Exhibit>
-      </div>
-
-      <div class="prose">
-        <p>
-          The industry's workhorse, which assumes returns follow a normal distribution, was breached on
-          {pct(rmBreach, 2)} of days: close to double what it promised. The adaptive conformal model
-          was breached on {pct(aciBreach, 2)}. That gap is the whole project in one number. A model that
-          admits more uncertainty when markets turn is one a risk manager can rely on, and one a
-          regulator will not penalize.
-        </p>
-        <p>
-          The method that does this, <Term
-            id="conformal"
-            title="A way to turn any forecast into a range with a stated success rate, using only the forecast's own past errors."
-            >conformal prediction</Term
-          >, makes no assumption about the shape of returns. It looks at how wrong the forecast has
-          been and widens or narrows the range to match. The chapters that follow show how, where it
-          breaks, and how I checked every number.
-        </p>
-      </div>
-
-      <PractitionerNotes>
-        <p>
-          Test period {meta.splits.test.start} to {meta.splits.test.end}; the model is fitted on
-          {" "}{meta.splits.train.start.slice(0, 4)}–{meta.splits.train.end.slice(0, 4)} and the conformal
-          quantile on {meta.splits.cal.start.slice(0, 4)}–{meta.splits.cal.end.slice(0, 4)}, so no test day
-          informs any parameter. Portfolio: equal-weight {meta.data.tickers.join(", ")}.
-        </p>
-        <p>
-          ACI follows Gibbs and Candès (2021): after each day, α<sub>t+1</sub> = α<sub>t</sub> + γ(α − err<sub>t</sub>),
-          with a floor so the interval stays finite at the 99% level. VaR models share one
-          volatility forecast where it applies. Kupiec tests the unconditional breach rate;
-          Christoffersen's independence test and the Basel traffic light are in chapter 7.
-        </p>
-      </PractitionerNotes>
-
-      <h3 class="defs-h">Definitions</h3>
-      <dl class="defs">
-        <div id="def-calibration"><dt>Calibrated</dt><dd>Things said to happen X% of the time happen X% of the time.</dd></div>
-        <div id="def-var"><dt>Value at Risk</dt><dd>A loss level the portfolio should stay above on a stated share of days, here 99%.</dd></div>
-        <div id="def-breach"><dt>Breach</dt><dd>A day the actual loss was worse than the model's stated limit.</dd></div>
-        <div id="def-conformal"><dt>Conformal prediction</dt><dd>Turns any forecast into a range with a stated success rate, using only the forecast's past errors.</dd></div>
-      </dl>
-
-      <nav class="pager" aria-label="Chapter">
-        <a href="#cover"><span class="sc">Previous</span> 0 Summary</a>
-        <a href="#contents" class="next"><span class="sc">Next</span> 2 The portfolio, in preparation</a>
-      </nav>
-    </section>
+    <Why />
+    <Portfolio />
+    <Forecast />
+    <Intervals />
+    <Adapt />
 
     <section class="chapter contents" id="contents" aria-labelledby="next-h">
       <h2 id="next-h">The rest of the study</h2>
@@ -451,107 +302,6 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
     padding-top: calc(var(--step-4) + var(--s2));
   }
 
-  /* Chapters: one reading column, exhibits may run wider. */
-  .chapter {
-    max-width: 50rem;
-    margin: 0 auto;
-    padding: var(--s4) var(--s3);
-  }
-  .prose {
-    max-width: var(--measure);
-  }
-  .exhibit-wide {
-    margin: var(--s3) 0;
-  }
-
-  .defs-h {
-    margin: var(--s3) 0 var(--s0);
-    font-size: var(--step--1);
-    font-weight: 600;
-    font-variant-caps: all-small-caps;
-    letter-spacing: 0.08em;
-  }
-  .defs {
-    max-width: var(--measure);
-    margin: 0;
-    font-size: var(--step--1);
-    color: var(--ink-2);
-    columns: 2;
-    column-gap: var(--s3);
-  }
-  .defs div {
-    break-inside: avoid;
-    margin-bottom: var(--s0);
-  }
-  .defs dt {
-    font-weight: 600;
-    color: var(--ink);
-    display: inline;
-  }
-  .defs dt::after {
-    content: ". ";
-  }
-  .defs dd {
-    display: inline;
-    margin: 0;
-  }
-  .defs div:target {
-    background: var(--wash);
-  }
-
-  .pager {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--s2);
-    margin-top: var(--s3);
-    padding-top: var(--s0);
-    border-top: 1px solid var(--rule-strong);
-    font-size: 1rem;
-  }
-  .pager a {
-    text-decoration: none;
-  }
-  .pager a:hover {
-    text-decoration: underline;
-  }
-  .pager .sc {
-    display: block;
-    font-size: var(--step--1);
-    color: var(--ink-3);
-  }
-  .pager .next {
-    text-align: right;
-  }
-
-  .contents h2 {
-    font-size: var(--step-2);
-    font-weight: 600;
-    border-top: 3px double var(--rule-strong);
-    padding-top: var(--s2);
-  }
-  .pending-note {
-    margin-top: var(--s0);
-    color: var(--ink-3);
-    font-style: italic;
-  }
-  .contents ol {
-    list-style: none;
-    padding: 0;
-    margin: var(--s1) 0 0;
-    columns: 2;
-    column-gap: var(--s3);
-    color: var(--ink-3);
-  }
-  .contents li {
-    padding: var(--s-1) 0;
-    border-bottom: 1px solid var(--rule);
-    break-inside: avoid;
-  }
-  .contents .n {
-    display: inline-block;
-    min-width: 1.75em;
-  }
-
   @media (max-width: 960px) {
     main {
       padding-left: 0;
@@ -564,13 +314,6 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
     .cover-exhibit {
       position: static;
       padding-top: 0;
-    }
-    .chapter {
-      padding: var(--s3) var(--s1);
-    }
-    .defs,
-    .contents ol {
-      columns: 1;
     }
   }
 </style>

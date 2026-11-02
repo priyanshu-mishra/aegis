@@ -1,0 +1,18 @@
+---
+// The chapter's defined terms; each <Term id> links here.
+interface Props {
+  items: { id: string; term: string; def: string }[];
+}
+const { items } = Astro.props;
+---
+<h3 class="defs-h">Definitions</h3>
+<dl class="defs">
+  {
+    items.map((d) => (
+      <div id={`def-${d.id}`}>
+        <dt>{d.term}</dt>
+        <dd>{d.def}</dd>
+      </div>
+    ))
+  }
+</dl>

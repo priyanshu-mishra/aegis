@@ -1,0 +1,103 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import SmallMultiples from "../components/SmallMultiples.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import { formatDate, load, type Frame } from "../lib/data";
+
+const meta = load("meta");
+const prices = load<Frame>("prices");
+const sp = meta.splits;
+const names: Record<string, string> = {
+  SPY: "US stocks (S&P 500)",
+  TLT: "Long-dated US Treasury bonds",
+  GLD: "Gold",
+  USO: "Crude oil",
+};
+const tickers: string[] = meta.data.tickers;
+const yr = (d: string) => d.slice(0, 4);
+const label = `Four price charts, weekly and indexed to 100, ${yr(prices.dates[0])}–${yr(prices.dates.at(-1)!)}. Dotted lines mark the start of the calibration period (${yr(sp.cal.start)}) and the test period (${yr(sp.test.start)}).`;
+---
+<section class="chapter" id="portfolio" aria-labelledby="portfolio-h">
+  <ChapterOpener n="2" title="The portfolio" minutes={2} question="What exactly is being forecast?" hid="portfolio-h" />
+
+  <div class="prose">
+    <p>
+      The study follows one simple portfolio: equal amounts in four exchange-traded funds that a
+      multi-asset desk would recognise, rebalanced daily.
+    </p>
+    <ul class="assets">
+      {tickers.map((t) => <li><strong>{t}</strong> {names[t] ?? t}</li>)}
+    </ul>
+    <p>
+      They behave differently. Stocks and oil fall in a crisis, bonds and gold often rise, so the
+      portfolio's risk depends on how they move together, not just on each one. What I forecast is
+      the portfolio's <Term id="volatility" title="How much the value swings from day to day, expressed as a yearly percentage.">volatility</Term>
+      over the next five trading days: how bumpy the coming week will be.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="C"
+      title="The four holdings, and the three periods of the study"
+      source={`Weekly closing prices from Yahoo Finance, indexed to 100 in ${yr(prices.dates[0])}, log scale. Dotted lines: the model is fitted before ${yr(sp.cal.start)}, its ranges are calibrated on ${yr(sp.cal.start)}–${yr(sp.cal.end)}, and everything from ${formatDate(sp.test.start)} is the test.`}
+      id="exhibit-c"
+    >
+      <SmallMultiples frame={prices} names={names} calStart={sp.cal.start} testStart={sp.test.start} label={label} />
+      <SmallMultiples frame={prices} names={names} calStart={sp.cal.start} testStart={sp.test.start} label={label} narrow />
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      The dotted lines matter more than the prices. Every number in this study is a <Term
+        id="walk-forward"
+        title="Testing a model only on days after everything it learned from, the way it would have been used.">walk-forward</Term
+      > result: the model learns from {yr(sp.train.start)}–{yr(sp.train.end)}, the error bars are set
+      on {yr(sp.cal.start)}–{yr(sp.cal.end)}, and the test runs over {sp.test.rows.toLocaleString("en-GB")}
+      trading days the model never saw, starting just before the 2020 crash.
+    </p>
+  </div>
+
+  <PractitionerNotes>
+    <p>
+      Data: daily adjusted closes for {tickers.join(", ")} from {meta.data.source}, {meta.data.first_day} to
+      {" "}{meta.data.last_day}. Portfolio log return is the weighted sum of asset log returns with
+      equal weights. Rows: fit {sp.train.rows.toLocaleString("en-GB")}, calibration {sp.cal.rows}, test
+      {" "}{sp.test.rows.toLocaleString("en-GB")}. The splits leave a gap of the forecast horizon
+      ({meta.horizon} days) so no target overlaps the next period.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions
+    items={[
+      { id: "volatility", term: "Volatility", def: "How much the portfolio's value swings day to day, quoted as a yearly percentage." },
+      { id: "walk-forward", term: "Walk-forward", def: "Testing only on days after everything the model learned from, as it would have been used live." },
+    ]}
+  />
+  <Pager id="portfolio" />
+</section>
+
+<style>
+  .assets {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 var(--s1);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+    border-top: 1px solid var(--rule);
+  }
+  .assets li {
+    padding: var(--s-1) 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .assets strong {
+    display: inline-block;
+    min-width: 3.25em;
+    font-weight: 600;
+  }
+</style>

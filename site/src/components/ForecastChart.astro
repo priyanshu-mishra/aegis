@@ -1,0 +1,59 @@
+---
+// The point forecast against what happened, over the whole test period (annualized, log scale).
+import { scaleLog, scaleTime } from "d3-scale";
+import { line } from "d3-shape";
+import { annual, type Frame } from "../lib/data";
+
+interface Props {
+  frame: Frame;
+  label: string;
+  narrow?: boolean;
+}
+const { frame, label, narrow = false } = Astro.props;
+const W = narrow ? 400 : 720;
+const H = narrow ? 240 : 300;
+const m = { top: 12, right: 12, bottom: 28, left: 40 };
+const dates = frame.dates.map((d) => new Date(d));
+const x = scaleTime().domain([dates[0], dates.at(-1)!]).range([m.left, W - m.right]);
+const y = scaleLog().domain([2.5, 110]).range([H - m.bottom, m.top]).clamp(true);
+const path = (k: string) =>
+  line<number | null>()
+    .defined((v) => v != null)
+    .x((_, i) => x(dates[i]))
+    .y((v) => y(annual(v)!))(frame.series[k]) ?? "";
+---
+<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    [5, 10, 20, 40, 80].map((t) => (
+      <g>
+        <line x1={m.left} x2={W - m.right} y1={y(t)} y2={y(t)} class="grid" />
+        <text x={m.left - 6} y={y(t)} class="tick" text-anchor="end" dominant-baseline="middle">{t}%</text>
+      </g>
+    ))
+  }
+  {x.ticks(narrow ? 4 : 7).map((t) => <text x={x(t)} y={H - 8} class="tick" text-anchor="middle">{t.getUTCFullYear()}</text>)}
+  <path d={path("y")} class="realized" />
+  <path d={path("mu")} class="forecast" />
+</svg>
+
+<style>
+  .grid {
+    stroke: var(--rule);
+  }
+  .tick {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .realized {
+    fill: none;
+    stroke: var(--ghost);
+    stroke-width: 1;
+  }
+  .forecast {
+    fill: none;
+    stroke: var(--ink);
+    stroke-width: 1.5;
+    stroke-linejoin: round;
+  }
+</style>

@@ -1,0 +1,18 @@
+---
+// Previous and next at the end of each chapter.
+import { neighbours } from "../lib/chapters";
+interface Props {
+  id: string;
+}
+const { prev, next } = neighbours(Astro.props.id);
+---
+<nav class="pager" aria-label="Chapter">
+  {prev && <a href={`#${prev.id}`}><span class="sc">Previous</span> {prev.n} {prev.title}</a>}
+  {
+    next && (
+      <a href={next.ready ? `#${next.id}` : "#contents"} class="next">
+        <span class="sc">Next</span> {next.n} {next.title}{next.ready ? "" : ", in preparation"}
+      </a>
+    )
+  }
+</nav>

@@ -1,0 +1,93 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import AciPlayground from "../islands/AciPlayground.svelte";
+import { load, pct, type Frame } from "../lib/data";
+
+const meta = load("meta");
+const metrics = load("metrics");
+const golden = load("golden");
+const cal = load<Frame>("calibration");
+const vol = load<Frame>("vol");
+const vm = metrics.vol;
+const firstYear = meta.splits.test.start.slice(0, 4);
+const level = 1 - meta.alpha;
+const t = vm.mondrian.by_tercile;
+---
+<section class="chapter" id="adapt" aria-labelledby="adapt-h">
+  <ChapterOpener n="5" title="When markets shift" minutes={3} question="Why do guarantees break, and how do you repair them?" hid="adapt-h" />
+
+  <div class="prose">
+    <p>
+      The fix is a feedback loop. <Term id="aci" title="Adaptive Conformal Inference (Gibbs and Candès, 2021).">Adaptive conformal inference</Term>
+      keeps score as it goes. Each time the range misses, it widens the next ranges a little; each time
+      it holds, it narrows them a little. The size of that nudge is the step size γ.
+    </p>
+    <p>
+      The pay-off is a different kind of guarantee. Over a long run the miss rate comes back to the
+      promise for any sequence of markets, calm or not, with no assumption that the future looks like the past.
+      Below, the whole test period is re-run in your browser at the promise and step size you choose.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="F"
+      title={`${firstYear} again, with a range that learns from its misses`}
+      source={`Adaptive conformal inference on the same forecast and calibration scores as Exhibit E. Outcomes are revealed ${golden.feedback_lag} trading days late, as a 5-day target would be in practice. Computed in your browser and checked against the Python reference values.`}
+      id="exhibit-f"
+    >
+      <AciPlayground
+        client:visible
+        calY={cal.series.y as number[]}
+        calMu={cal.series.mu as number[]}
+        dates={vol.dates}
+        y={vol.series.y as number[]}
+        mu={vol.series.mu as number[]}
+        lag={golden.feedback_lag}
+        floorRatio={golden.floor_ratio}
+        defaultGamma={golden.gamma}
+        focusYear={firstYear}
+      />
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      At {pct(level, 0)} and the study's step size, the adaptive range held on {pct(vm.aci.by_year[firstYear])}
+      of days in {firstYear} and {pct(vm.aci.coverage)} overall. The working level shows the
+      mechanism: it fell in March {firstYear} as misses piled up, which widened the range in time
+      for the rest of the year. Push γ up and it reacts faster but jitters; push it down and it
+      behaves like the textbook method.
+    </p>
+    <p>
+      I tested two other repairs. DtACI runs several step sizes at once and follows whichever has
+      done best: {pct(vm.dtaci.coverage)} overall, the most even across calm and stormy markets.
+      Mondrian conformal keeps separate cut-offs for calm, normal and stormy regimes:
+      {" "}{pct(vm.mondrian.coverage)} overall, {pct(t.high)} in stormy markets but {pct(t.low)} in calm ones.
+    </p>
+  </div>
+
+  <PractitionerNotes>
+    <p>
+      α<sub>t+1</sub> = α<sub>t</sub> + γ(α − err<sub>t</sub>), with err revealed after a
+      {" "}{golden.feedback_lag}-day lag; q̂<sub>t</sub> is the conformal quantile at max(α<sub>t</sub>,
+      {" "}{golden.floor_ratio}α, 1/(n+1)) over all scores seen so far. The floor keeps ranges finite at extreme
+      levels. Long-run bound: |mean err − α| ≤ (max(α₁, 1−α₁) + γ)/(γT). Worst 63-day coverage:
+      ACI {pct(vm.aci.worst_rolling_coverage)}, split {pct(vm.split_absolute.worst_rolling_coverage)}.
+      DtACI scores its experts on the levels actually issued, so delayed feedback does not
+      bias the expert weights.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions
+    items={[
+      { id: "aci", term: "ACI", def: "Adaptive conformal inference: after each miss widen, after each hit narrow, by a step γ." },
+    ]}
+  />
+  <Pager id="adapt" />
+</section>
