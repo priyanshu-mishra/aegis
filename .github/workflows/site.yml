@@ -1,8 +1,9 @@
-name: Site data
+name: Site
 
-# Refreshes market data, re-runs every backtest the site shows and exports site/public/data.
-# If the download or any run fails, the committed snapshot is used and status.json says so.
-# Deployment to GitHub Pages is added with the site itself (PLAN_v2 milestone V8).
+# Refreshes market data, re-runs every backtest the site shows, exports site/public/data, then
+# builds the Astro site and deploys it to GitHub Pages (priyanshu-mishra.github.io/aegis).
+# If the download or any run fails, the committed snapshot is used and status.json says so,
+# so the site still deploys with its last good figures.
 
 on:
   schedule:
@@ -14,11 +15,16 @@ on:
       - "src/**"
       - "configs/**"
       - "scripts/**"
-      - ".github/workflows/site-data.yml"
+      - "tests/**"
+      - "site/**"
+      - ".github/workflows/site.yml"
+
+permissions:
+  contents: read
 
 concurrency:
-  group: site-data
-  cancel-in-progress: true
+  group: site
+  cancel-in-progress: false
 
 jobs:
   data:
@@ -71,3 +77,43 @@ jobs:
           name: site-data
           path: site/public/data
           retention-days: 14
+
+  build:
+    needs: data
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          name: site-data
+          path: site/public/data
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      # The browser ports of conformal prediction and the lexicon must match Python exactly.
+      - run: npm test
+      # Fails if any exhibit disagrees with metrics.json (e.g. breach counts).
+      - run: npm run build
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

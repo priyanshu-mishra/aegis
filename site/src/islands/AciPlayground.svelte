@@ -5,19 +5,17 @@
   import { area, line } from "d3-shape";
   import { quantileSorted, runAci, scores } from "../lib/conformal";
   import { alpha, LEVELS } from "../lib/state";
+  import { unpack } from "../lib/pack";
 
   interface Props {
-    calY: number[];
-    calMu: number[];
-    dates: string[];
-    y: number[];
-    mu: number[];
+    data: string; // lib/pack.ts
     lag: number;
     floorRatio: number | null;
     defaultGamma: number;
     focusYear: string;
   }
-  let { calY, calMu, dates, y, mu, lag, floorRatio, defaultGamma, focusYear }: Props = $props();
+  let { data, lag, floorRatio, defaultGamma, focusYear }: Props = $props();
+  const { calY, calMu, dates, y, mu } = unpack(data);
 
   const GAMMAS = [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1];
   let gi = $state(Math.max(0, GAMMAS.indexOf(defaultGamma)));
@@ -59,10 +57,10 @@
     miss: !run.covered[i],
   })));
   type P = (typeof pts)[number];
-  const band = $derived(area<P>().x((p) => p.x).y0((p) => p.lo).y1((p) => p.hi)(pts) ?? "");
-  const real = $derived(line<P>().x((p) => p.x).y((p) => p.r)(pts) ?? "");
-  const sUp = $derived(line<P>().x((p) => p.x).y((p) => p.sHi)(pts) ?? "");
-  const sDn = $derived(line<P>().x((p) => p.x).y((p) => p.sLo)(pts) ?? "");
+  const band = $derived(area<P>().digits(1).x((p) => p.x).y0((p) => p.lo).y1((p) => p.hi)(pts) ?? "");
+  const real = $derived(line<P>().digits(1).x((p) => p.x).y((p) => p.r)(pts) ?? "");
+  const sUp = $derived(line<P>().digits(1).x((p) => p.x).y((p) => p.sHi)(pts) ?? "");
+  const sDn = $derived(line<P>().digits(1).x((p) => p.x).y((p) => p.sLo)(pts) ?? "");
   const fmtM = (d: Date) => d.toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" });
 
   // Chart 2: the working level α_t over the whole test period.
@@ -80,7 +78,7 @@
   const aMin = $derived(Math.min(0, ...run.alphaPath));
   const y2 = $derived(scaleLinear().domain([aMin, aMax]).nice().range([H2 - m.bottom, m.top]));
   const aPath = $derived(
-    line<number>().x((_, i) => x2(new Date(dates[i]))).y((a) => y2(a))(run.alphaPath) ?? "",
+    line<number>().digits(1).x((_, i) => x2(new Date(dates[i]))).y((a) => y2(a))(run.alphaPath) ?? "",
   );
 </script>
 

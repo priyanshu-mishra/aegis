@@ -4,16 +4,14 @@
   import { scaleLinear } from "d3-scale";
   import { coverage, quantileSorted, scores } from "../lib/conformal";
   import { alpha, LEVELS } from "../lib/state";
+  import { unpack } from "../lib/pack";
 
   interface Props {
-    calY: number[];
-    calMu: number[];
+    data: string; // lib/pack.ts
     calYears: string;
-    dates: string[];
-    y: number[];
-    mu: number[];
   }
-  let { calY, calMu, calYears, dates, y, mu }: Props = $props();
+  let { data, calYears }: Props = $props();
+  const { calY, calMu, dates, y, mu } = unpack(data);
 
   const sorted = scores(calY, calMu).sort((a, b) => a - b);
   const years = [...new Set(dates.map((d) => d.slice(0, 4)))];

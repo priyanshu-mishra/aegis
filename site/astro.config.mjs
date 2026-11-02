@@ -6,6 +6,8 @@ export default defineConfig({
   site: "https://priyanshu-mishra.github.io",
   base: "/aegis",
   devToolbar: { enabled: false },
+  // The CSS is small; inlining it saves a round trip before first paint.
+  build: { inlineStylesheets: "always" },
   trailingSlash: "ignore",
   integrations: [svelte()],
 });

@@ -7,6 +7,7 @@ import Definitions from "../components/Definitions.astro";
 import Pager from "../components/Pager.astro";
 import ConformalPlayground from "../islands/ConformalPlayground.svelte";
 import { load, pct, type Frame } from "../lib/data";
+import { pack } from "../lib/pack";
 
 const meta = load("meta");
 const metrics = load("metrics");
@@ -47,12 +48,8 @@ const k = Math.ceil((nCal + 1) * level - 1e-9);
     >
       <ConformalPlayground
         client:visible
-        calY={cal.series.y as number[]}
-        calMu={cal.series.mu as number[]}
+        data={pack(cal, vol)}
         calYears={calYears}
-        dates={vol.dates}
-        y={vol.series.y as number[]}
-        mu={vol.series.mu as number[]}
       />
       <table slot="table">
         <caption class="visually-hidden">At the {pct(level, 0)} promise</caption>

@@ -2,7 +2,7 @@
 // One small panel per asset (weekly, indexed to 100, log scale), with the study's three periods
 // marked: fit the model, calibrate the ranges, then test on unseen days.
 import { scaleLog, scaleUtc } from "d3-scale";
-import { line } from "d3-shape";
+import { thinPath } from "../lib/chart";
 import type { Frame } from "../lib/data";
 
 interface Props {
@@ -28,10 +28,7 @@ const panels = keys.map((k, i) => {
   const vals = frame.series[k];
   const fin = vals.filter((v): v is number => v != null && v > 0);
   const y = scaleLog().domain([Math.min(...fin) / 1.08, Math.max(...fin) * 1.08]).range([ph - m.bottom, m.top]);
-  const d = line<number | null>()
-    .defined((v) => v != null && v > 0)
-    .x((_, j) => x(dates[j]))
-    .y((v) => y(v as number))(vals) ?? "";
+  const d = thinPath(vals.map((v, j) => ({ x: x(dates[j]), y: v != null && v > 0 ? y(v) : null })));
   const last = fin.at(-1)!;
   // Round log ticks, dropped when closer than 16px to the one below, so labels never collide.
   const cand = [1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000].filter((t) => t >= y.domain()[0] && t <= y.domain()[1]);

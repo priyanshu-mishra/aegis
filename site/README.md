@@ -5,7 +5,7 @@ The public, guided site for Aegis. Plan: [docs/PLAN_v2.md](../docs/PLAN_v2.md), 
 ## Data contract (`public/data/*.json`, schema version 1)
 
 Written by `python main.py export-site -c configs/default.yaml` from a saved backtest. The nightly
-`site-data` workflow regenerates it; if the data download fails, the committed snapshot is used
+`Site` workflow (`.github/workflows/site.yml`) regenerates it, builds the site and deploys it to GitHub Pages; if the data download fails, the committed snapshot is used
 and `status.json` says so.
 
 Conventions:

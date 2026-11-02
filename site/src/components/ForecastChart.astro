@@ -1,7 +1,7 @@
 ---
 // The point forecast against what happened, over the whole test period (annualized, log scale).
 import { scaleLog, scaleUtc } from "d3-scale";
-import { line } from "d3-shape";
+import { thinPath } from "../lib/chart";
 import { annual, type Frame } from "../lib/data";
 
 interface Props {
@@ -23,10 +23,7 @@ const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
   .filter((t) => t.x >= m.left && t.x <= W - m.right);
 const y = scaleLog().domain([2.5, 160]).range([H - m.bottom, m.top]).clamp(true);
 const path = (k: string) =>
-  line<number | null>()
-    .defined((v) => v != null)
-    .x((_, i) => x(dates[i]))
-    .y((v) => y(annual(v)!))(frame.series[k]) ?? "";
+  thinPath(frame.series[k].map((v, i) => ({ x: x(dates[i]), y: v == null ? null : y(annual(v)!) })));
 ---
 <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
   {

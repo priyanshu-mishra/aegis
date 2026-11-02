@@ -7,6 +7,7 @@ import Definitions from "../components/Definitions.astro";
 import Pager from "../components/Pager.astro";
 import AciPlayground from "../islands/AciPlayground.svelte";
 import { load, pct, type Frame } from "../lib/data";
+import { pack } from "../lib/pack";
 
 const meta = load("meta");
 const metrics = load("metrics");
@@ -43,11 +44,7 @@ const t = vm.mondrian.by_tercile;
     >
       <AciPlayground
         client:visible
-        calY={cal.series.y as number[]}
-        calMu={cal.series.mu as number[]}
-        dates={vol.dates}
-        y={vol.series.y as number[]}
-        mu={vol.series.mu as number[]}
+        data={pack(cal, vol)}
         lag={golden.feedback_lag}
         floorRatio={golden.floor_ratio}
         defaultGamma={golden.gamma}

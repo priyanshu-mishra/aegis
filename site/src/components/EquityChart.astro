@@ -1,7 +1,7 @@
 ---
 // Growth of 1 under each sizing rule (log scale), and below it the fall from each line's peak.
 import { scaleLinear, scaleLog, scaleUtc } from "d3-scale";
-import { area, line } from "d3-shape";
+import { thinPath } from "../lib/chart";
 import type { Frame } from "../lib/data";
 
 interface Props {
@@ -34,10 +34,11 @@ const ddMin = Math.min(...curves.flatMap((c) => c.dd));
 const top2 = H1 + gap;
 const y2 = scaleLinear().domain([ddMin * 1.05, 0]).range([top2 + H2 - m.bottom, top2]);
 const path = (vals: number[], ys: (v: number) => number) =>
-  line<number>().x((_, i) => x(dates[i])).y((v) => ys(v))(vals) ?? "";
+  thinPath(vals.map((v, i) => ({ x: x(dates[i]), y: ys(v) })));
 const ghost = curves.find((c) => c.style === "ghost");
+// The shaded fall from peak: the thinned line, closed along the zero line.
 const ddArea = ghost
-  ? area<number>().x((_, i) => x(dates[i])).y0(y2(0)).y1((v) => y2(v))(ghost.dd) ?? ""
+  ? `${path(ghost.dd, y2)}L${x(dates.at(-1)!).toFixed(1)},${y2(0).toFixed(1)}L${x(dates[0]).toFixed(1)},${y2(0).toFixed(1)}Z`
   : "";
 const yTicks = [0.8, 1, 1.25, 1.5, 1.75, 2, 2.5].filter((t) => t >= y.domain()[0] && t <= y.domain()[1]);
 const ddTicks = [-0.3, -0.2, -0.1, 0].filter((t) => t >= y2.domain()[0]);
