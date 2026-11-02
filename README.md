@@ -5,10 +5,14 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 175 offline" src="https://img.shields.io/badge/tests-175%20offline-1baf7a">
+  <img alt="Tests: 177 offline" src="https://img.shields.io/badge/tests-177%20offline-1baf7a">
   <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
+  <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml"><img alt="Site" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml/badge.svg"></a>
 </p>
+
+<p align="center"><strong><a href="https://priyanshu-mishra.github.io/aegis/">Read the guided study →</a></strong><br>
+A plain-language walk-through with live exhibits, refreshed every weeknight from market data.</p>
 
 **Aegis** wraps portfolio-risk forecasts in prediction intervals whose coverage is measured, not assumed. A semantic parser (a deterministic lexicon or a local small language model) turns financial text into structured shock signals; a factor engine forecasts volatility and Value-at-Risk; a conformal prediction layer calibrates the uncertainty around them. Everything is evaluated walk-forward on 2020–2026 market data, with tests that rule out look-ahead.
 
@@ -346,7 +350,7 @@ dashboard/app.py           Streamlit dashboard over reports/*
 site/                      public site: data contract (README.md) and exported JSON (public/data)
 scripts/                   make_readme_assets.py: regenerates every chart in this README
 docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
-tests/                     175 offline tests + network and live-SLM tests
+tests/                     177 offline tests + network and live-SLM tests
 ```
 
 </details>
