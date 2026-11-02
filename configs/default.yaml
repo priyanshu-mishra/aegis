@@ -1,0 +1,36 @@
+# Real market data, FOMC statements parsed by the deterministic lexicon backend.
+name: default
+seed: 42
+
+data:
+  source: yfinance
+  tickers: [SPY, TLT, GLD, USO]
+  feature_tickers: ["^VIX"]
+  start: 2010-01-01
+  news_source: fomc
+
+portfolio:
+  weighting: equal
+
+splits:
+  train_end: 2017-12-31
+  cal_end: 2019-12-31
+  embargo_days: 5
+
+parser:
+  backend: lexicon
+  # Off: on 2010–2026 data, FOMC text raised vol RMSE (lexicon +1.2%, qwen2.5:3b +2.8%) and
+  # widened intervals
+  # (see `python main.py ablation -c configs/default.yaml`). Statements are too sparse to help.
+  use_signals: false
+
+risk:
+  ewma_lambda: 0.94
+  horizon_days: 5
+  point_model: ridge   # out-of-sample log-vol RMSE 2020–2026: ridge 0.439, HAR 0.446, LightGBM 0.467
+
+conformal:
+  alpha: 0.05
+  methods: [split_absolute, split_normalized, cqr, rolling, aci, one_sided_var]
+  rolling_window: 500
+  aci_gamma: 0.005

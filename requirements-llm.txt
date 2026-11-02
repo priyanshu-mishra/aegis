@@ -1,0 +1,5 @@
+# Optional: in-process SLM backend (TransformersParser). Not needed for the Ollama or lexicon backends.
+transformers>=4.44
+torch>=2.3
+outlines>=0.1
+huggingface_hub>=0.24

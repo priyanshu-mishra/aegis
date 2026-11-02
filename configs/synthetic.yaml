@@ -1,0 +1,21 @@
+# Fully offline synthetic world with a known latent shock driving both returns and news.
+name: synthetic
+seed: 7
+
+data:
+  source: synthetic
+  news_source: synthetic
+  start: 2010-01-01
+  synthetic:
+    n_days: 4000
+    snr: 0.5
+    news_per_day: 1.0
+
+splits:
+  train_end: 2017-12-31
+  cal_end: 2019-12-31
+  embargo_days: 5
+
+parser:
+  backend: lexicon
+  mask_entities: false

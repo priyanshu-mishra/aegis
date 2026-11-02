@@ -1,0 +1,8 @@
+"""Aegis entry point. Equivalent to the installed ``aegis`` command."""
+
+import sys
+
+from aegis.cli import main
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,13 @@
+# Real data with a local SLM via Ollama.  Setup:  brew install ollama && ollama pull qwen2.5:3b
+name: ollama
+
+data:
+  source: yfinance
+  news_source: fomc
+
+parser:
+  backend: ollama
+  model: qwen2.5:3b
+  ollama_url: http://localhost:11434
+  timeout_s: 60
+  mask_entities: true
