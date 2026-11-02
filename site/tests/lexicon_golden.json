@@ -1,0 +1,158 @@
+[
+ {
+  "text": "The Fed signaled further increases in the target range as inflation remains elevated.",
+  "shocks": {
+   "rates": 0.6043677771171634,
+   "inflation": 0.6043677771171634,
+   "growth": 0.0,
+   "energy": 0.0,
+   "geopolitics": 0.0,
+   "credit": 0.0
+  },
+  "sentiment": 0.0,
+  "vol": "neutral",
+  "impacts": {
+   "SPY": -0.4490376477954152,
+   "TLT": -0.7194730436188027,
+   "GLD": 0.12028830449732672,
+   "USO": 0.0
+  },
+  "evidence": [
+   "The Fed signaled further increases in the target range as inflation remains elevated."
+  ]
+ },
+ {
+  "text": "Oil prices surged after the conflict escalated; spreads widened sharply.",
+  "shocks": {
+   "rates": 0.0,
+   "inflation": 0.6043677771171634,
+   "growth": 0.0,
+   "energy": 0.6043677771171634,
+   "geopolitics": 0.8853516482022624,
+   "credit": 0.7615941559557649
+  },
+  "sentiment": -0.3333333333333333,
+  "vol": "up",
+  "impacts": {
+   "SPY": -0.8600920462338602,
+   "TLT": 0.13071093548103802,
+   "GLD": 0.7555286984679886,
+   "USO": 0.7436108136000251
+  },
+  "evidence": [
+   "Oil prices surged after the conflict escalated;",
+   "spreads widened sharply."
+  ]
+ },
+ {
+  "text": "Inflation has eased and the Committee decided to lower the target range. Job gains have been solid.",
+  "shocks": {
+   "rates": -0.6043677771171634,
+   "inflation": -0.6043677771171634,
+   "growth": 0.6043677771171634,
+   "energy": 0.0,
+   "geopolitics": 0.0,
+   "credit": 0.0
+  },
+  "sentiment": 0.6666666666666666,
+  "vol": "neutral",
+  "impacts": {
+   "SPY": 0.7473778961474491,
+   "TLT": 0.6201454109899346,
+   "GLD": -0.12028830449732672,
+   "USO": 0.17934935020534168
+  },
+  "evidence": [
+   "Inflation has eased and the Committee decided to lower the target range.",
+   "Job gains have been solid."
+  ]
+ },
+ {
+  "text": "Growth is not weakening, and credit markets stabilized after a brief selloff.",
+  "shocks": {
+   "rates": 0.0,
+   "inflation": 0.0,
+   "growth": 0.6043677771171634,
+   "energy": 0.0,
+   "geopolitics": 0.0,
+   "credit": 0.6043677771171634
+  },
+  "sentiment": -0.3333333333333333,
+  "vol": "neutral",
+  "impacts": {
+   "SPY": 0.0,
+   "TLT": 0.0,
+   "GLD": 0.12028830449732673,
+   "USO": 0.17934935020534168
+  },
+  "evidence": [
+   "Growth is not weakening, and credit markets stabilized after a brief selloff."
+  ]
+ },
+ {
+  "text": "Ceasefire talks resume negotiations; tensions ease and crude prices fell modestly.",
+  "shocks": {
+   "rates": 0.0,
+   "inflation": -0.3799489622552249,
+   "growth": 0.0,
+   "energy": -0.3799489622552249,
+   "geopolitics": -0.9468060128462683,
+   "credit": 0.0
+  },
+  "sentiment": 0.3333333333333333,
+  "vol": "down",
+  "impacts": {
+   "SPY": 0.5548645796971241,
+   "TLT": -0.05601373422374212,
+   "GLD": -0.6399317117325692,
+   "USO": -0.6402937028854923
+  },
+  "evidence": [
+   "Ceasefire talks resume negotiations;",
+   "tensions ease and crude prices fell modestly."
+  ]
+ },
+ {
+  "text": "Layoffs mount as manufacturing contracts; the economy is in recession.",
+  "shocks": {
+   "rates": 0.0,
+   "inflation": 0.0,
+   "growth": -0.9704519366134539,
+   "energy": 0.0,
+   "geopolitics": 0.0,
+   "credit": 0.0
+  },
+  "sentiment": -1.0,
+  "vol": "neutral",
+  "impacts": {
+   "SPY": -0.6506133679067356,
+   "TLT": 0.2831796661411778,
+   "GLD": 0.0,
+   "USO": -0.2831796661411778
+  },
+  "evidence": [
+   "Layoffs mount as manufacturing contracts;",
+   "the economy is in recession."
+  ]
+ },
+ {
+  "text": "Nothing happened today.",
+  "shocks": {
+   "rates": 0.0,
+   "inflation": 0.0,
+   "growth": 0.0,
+   "energy": 0.0,
+   "geopolitics": 0.0,
+   "credit": 0.0
+  },
+  "sentiment": 0.0,
+  "vol": "neutral",
+  "impacts": {
+   "SPY": 0.0,
+   "TLT": 0.0,
+   "GLD": 0.0,
+   "USO": 0.0
+  },
+  "evidence": []
+ }
+]

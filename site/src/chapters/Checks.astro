@@ -1,0 +1,119 @@
+---
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Pager from "../components/Pager.astro";
+import { formatDate, load } from "../lib/data";
+import { testCounts } from "../lib/repo";
+
+const meta = load("meta");
+const status = load("status");
+const bench = load("benchmark");
+const golden = load("golden");
+const sp = meta.splits;
+const tests = testCounts();
+const levels = Object.keys(golden.levels).map((a) => `${Math.round((1 - +a) * 100)}%`).join(" and ");
+const checks = [
+  {
+    what: "Walk-forward splits",
+    how: `The model is fitted on ${sp.train.start.slice(0, 4)}–${sp.train.end.slice(0, 4)}, the ranges and every sizing scale on ${sp.cal.start.slice(0, 4)}–${sp.cal.end.slice(0, 4)}. No test day informs any parameter.`,
+  },
+  {
+    what: "Look-ahead tests",
+    how: `${tests.leakage} of the ${tests.all} test functions check that features, weights, news and forecasts are unchanged when future data is altered or removed.`,
+  },
+  {
+    what: "Delayed outcomes",
+    how: `A five-day target is only known five days later, so the online methods learn each outcome ${golden.feedback_lag} trading days late, as they would live.`,
+  },
+  {
+    what: "Python and browser agree",
+    how: `The playgrounds re-implement conformal prediction in the browser. A test checks them against Python's reference values at ${levels}, to the last digit; the same goes for the lexicon reader.`,
+  },
+  {
+    what: "Every number is generated",
+    how: "Every result on this page is read from the pipeline's exported data when the site is built; none is typed in by hand.",
+  },
+  {
+    what: "Nightly refresh",
+    how: `Each weeknight GitHub Actions downloads prices, reruns the backtest and rebuilds the data. If the download fails, the last good data stays and the margin note says so. Last check: ${formatDate(status.checked.slice(0, 10))}${status.fresh === false ? ", which failed" : ""}.`,
+  },
+  {
+    what: "Speed",
+    how: `On a laptop, scoring one day takes ${bench.score_one_day.p50_ms.toFixed(2)} ms and the full walk-forward backtest ${bench.backtest_wall_s.toFixed(1)} s, so the method is cheap enough to run intraday.`,
+  },
+];
+---
+<section class="chapter" id="checks" aria-labelledby="checks-h">
+  <ChapterOpener n="11" title="How it was checked" minutes={2} question="Could these results be flattering themselves?" hid="checks-h" />
+
+  <div class="prose">
+    <p>
+      The easiest way to get a good backtest is to let the future leak into the past. These are the
+      guards against that, and the ways you can check the work yourself.
+    </p>
+  </div>
+
+  <table class="data checks">
+    <caption class="visually-hidden">Checks on the study</caption>
+    <tbody>
+      {checks.map((c) => (
+        <tr>
+          <th scope="row">{c.what}</th>
+          <td>{c.how}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+
+  <div class="prose reproduce">
+    <p>
+      To reproduce everything from a clean machine, clone
+      <a href="https://github.com/priyanshu-mishra/aegis">the repository</a> and run:
+    </p>
+    <pre><code>pip install -e ".[dev]"
+# the whole pipeline on a synthetic market, offline
+python main.py demo
+# real data
+python main.py backtest -c configs/default.yaml
+python -m pytest</code></pre>
+    <p>
+      Thank you for reading. I'm Priyanshu Mishra; the code is on
+      <a href="https://github.com/priyanshu-mishra">GitHub</a> and I'm on
+      <a href="https://www.linkedin.com/in/priyanshu-mishra-/">LinkedIn</a>.
+    </p>
+  </div>
+
+  <Pager id="checks" />
+</section>
+
+<style>
+  .checks th {
+    width: 11rem;
+    padding-right: var(--s1);
+    font-weight: 600;
+  }
+  .checks td {
+    color: var(--ink-2);
+  }
+  pre {
+    margin: var(--s1) 0 var(--s2);
+    padding: var(--s1) 0;
+    border-top: 1px solid var(--rule-strong);
+    border-bottom: 1px solid var(--rule);
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 0.875rem;
+    line-height: 1.6;
+  }
+  .reproduce {
+    margin-top: var(--s3);
+  }
+  @media (max-width: 600px) {
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+    .checks th {
+      width: 7.5rem;
+    }
+  }
+</style>

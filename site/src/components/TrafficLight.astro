@@ -1,0 +1,87 @@
+---
+// Basel traffic light per model, one column per day: green zone left blank, yellow in grey,
+// red in red. The zone comes from breaches in the trailing 250 days (0–4 / 5–9 / 10+).
+import { scaleUtc } from "d3-scale";
+import type { Frame } from "../lib/data";
+
+interface Props {
+  frame: Frame; // basel.json
+  rows: { key: string; name: string; focus?: boolean }[];
+  label: string;
+  narrow?: boolean;
+}
+const { frame, rows, label, narrow = false } = Astro.props;
+const W = narrow ? 400 : 720;
+const rowH = narrow ? 44 : 30;
+const m = narrow ? { left: 10, right: 10, top: 8, bottom: 26 } : { left: 250, right: 12, top: 8, bottom: 26 };
+const H = rows.length * rowH + m.top + m.bottom;
+const dates = frame.dates.map((d) => new Date(d));
+const x = scaleUtc().domain([dates[0], dates.at(-1)!]).range([m.left, W - m.right]);
+const zone = (e: number | null) => (e == null ? 0 : e >= 10 ? 2 : e >= 5 ? 1 : 0);
+// Merge consecutive days in the same zone into one rectangle.
+const data = rows.map((row, i) => {
+  const ex = frame.series[`${row.key}_exceptions`];
+  const runs: { z: number; x0: number; x1: number }[] = [];
+  ex.forEach((e, j) => {
+    const z = zone(e);
+    const last = runs.at(-1);
+    const xj = x(dates[j]), xn = j + 1 < dates.length ? x(dates[j + 1]) : W - m.right;
+    if (last && last.z === z) last.x1 = xn;
+    else runs.push({ z, x0: xj, x1: xn });
+  });
+  const cy = m.top + i * rowH + (narrow ? rowH - 12 : rowH / 2);
+  return { ...row, runs: runs.filter((r) => r.z > 0), cy };
+});
+const y0 = dates[0].getUTCFullYear(), y1 = dates.at(-1)!.getUTCFullYear();
+const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
+  .map((yr) => ({ yr, x: x(new Date(Date.UTC(yr, 6, 1))) }))
+  .filter((t) => t.x >= m.left && t.x <= W - m.right);
+---
+<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    data.map((d) => (
+      <g class={d.focus ? "focus" : "rest"}>
+        {narrow ? (
+          <text x={m.left} y={d.cy - 14} class="name">{d.name}</text>
+        ) : (
+          <text x={m.left - 14} y={d.cy} class="name" text-anchor="end" dominant-baseline="middle">{d.name}</text>
+        )}
+        <rect x={m.left} width={W - m.left - m.right} y={d.cy - 7} height="14" class="green" />
+        {d.runs.map((r) => (
+          <rect x={r.x0} width={Math.max(1, r.x1 - r.x0)} y={d.cy - 7} height="14" class={r.z === 2 ? "red" : "yellow"} />
+        ))}
+      </g>
+    ))
+  }
+  {years.map((t) => <text x={t.x} y={H - 6} class="tick" text-anchor="middle">{t.yr}</text>)}
+</svg>
+
+<style>
+  .green {
+    fill: none;
+    stroke: var(--rule);
+  }
+  .yellow {
+    fill: var(--ink-3);
+  }
+  .red {
+    fill: var(--herring);
+  }
+  .tick {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .name {
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 4px;
+    font-size: 14px;
+    fill: var(--ink-2);
+    font-family: var(--serif);
+  }
+  .focus .name {
+    fill: var(--ink);
+    font-weight: 600;
+  }
+</style>

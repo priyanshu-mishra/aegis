@@ -22,7 +22,7 @@ Conventions:
 | `calibration.json` | Calibration period: `y`, `mu`, `lo`, `hi`, `group` (vol tercile) | In-browser conformal playgrounds |
 | `golden.json` | Python reference values (split q̂, ACI coverage and bounds) computed on the *rounded* exported data | JS correctness test |
 | `aci_alpha.json` | ACI / DtACI working level α_t per test day | ACI chapter |
-| `var.json` | Per tail level (`"0.05"`, `"0.01"`): `r_next` and each method's 1-day VaR level | VaR chapter |
+| `var.json` | Per tail level (`"0.05"`, `"0.01"`): `r_next`, each method's 1-day VaR level, and `<method>_breach` (1/0, computed at full precision) | VaR chapter |
 | `es.json` | `r_next`, `<method>_var`, `<method>_es` at 97.5% | Regulatory view |
 | `var_long.json` | `r_fwd_long` and each method's 10-day 99% VaR level | Regulatory view |
 | `basel.json` | `<method>_exceptions`, `_multiplier`, `_capital` (rolling 250 days) | Traffic-light chart |

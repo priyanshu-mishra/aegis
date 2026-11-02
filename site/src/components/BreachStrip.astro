@@ -1,0 +1,84 @@
+---
+// One row per model: a tick on every day its loss limit was breached. A row's ticks are days.
+import { scaleUtc } from "d3-scale";
+import type { Frame } from "../lib/data";
+
+interface Props {
+  frame: Frame; // var.json at one tail level: <model>_var_breach flags
+  rows: { key: string; name: string; rate?: number; focus?: boolean }[]; // rate: exported breach rate, checked at build
+  label: string;
+  narrow?: boolean;
+}
+const { frame, rows, label, narrow = false } = Astro.props;
+const W = narrow ? 400 : 720;
+const rowH = narrow ? 44 : 30;
+const m = narrow ? { left: 10, right: 44, top: 8, bottom: 26 } : { left: 250, right: 56, top: 8, bottom: 26 };
+const H = rows.length * rowH + m.top + m.bottom;
+const dates = frame.dates.map((d) => new Date(d));
+const x = scaleUtc().domain([dates[0], dates.at(-1)!]).range([m.left, W - m.right]);
+const data = rows.map((row, i) => {
+  // Breach flags are computed in Python at full precision; the exported levels are rounded.
+  const flag = frame.series[`${row.key}_var_breach`];
+  const days = dates.filter((_, j) => flag[j] === 1);
+  const n = flag.filter((f) => f != null).length;
+  if (row.rate != null && days.length !== Math.round(row.rate * n)) {
+    throw new Error(`BreachStrip: ${row.key} has ${days.length} breaches, metrics say ${Math.round(row.rate * n)}`);
+  }
+  const cy = m.top + i * rowH + (narrow ? rowH - 12 : rowH / 2);
+  return { ...row, days, cy };
+});
+const y0 = dates[0].getUTCFullYear(), y1 = dates.at(-1)!.getUTCFullYear();
+const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
+  .filter((_, i) => !narrow || i % 2 === 0)
+  .map((yr) => ({ yr, x: x(new Date(Date.UTC(yr, 6, 1))) }))
+  .filter((t) => t.x >= m.left && t.x <= W - m.right);
+---
+<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    data.map((d) => (
+      <g class={d.focus ? "focus" : "rest"}>
+        {narrow ? (
+          <text x={m.left} y={d.cy - 14} class="name">{d.name}</text>
+        ) : (
+          <text x={m.left - 14} y={d.cy} class="name" text-anchor="end" dominant-baseline="middle">{d.name}</text>
+        )}
+        <line x1={m.left} x2={W - m.right} y1={d.cy} y2={d.cy} class="base" />
+        {d.days.map((t) => <line x1={x(t)} x2={x(t)} y1={d.cy - 8} y2={d.cy + 8} class="tick-mark" />)}
+        <text x={W - m.right + 8} y={d.cy} class="count" dominant-baseline="middle">{d.days.length}</text>
+      </g>
+    ))
+  }
+  {years.map((t) => <text x={t.x} y={H - 6} class="tick" text-anchor="middle">{t.yr}</text>)}
+</svg>
+
+<style>
+  .base {
+    stroke: var(--rule);
+  }
+  .tick-mark {
+    stroke: var(--herring);
+    stroke-width: 1.5;
+  }
+  .tick,
+  .count {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .focus .count {
+    fill: var(--ink);
+    font-weight: 600;
+  }
+  .name {
+    paint-order: stroke;
+    stroke: var(--paper);
+    stroke-width: 4px;
+    font-size: 14px;
+    fill: var(--ink-2);
+    font-family: var(--serif);
+  }
+  .focus .name {
+    fill: var(--ink);
+    font-weight: 600;
+  }
+</style>

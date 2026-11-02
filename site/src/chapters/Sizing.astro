@@ -1,0 +1,129 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import EquityChart from "../components/EquityChart.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import { load, pct, type Frame } from "../lib/data";
+
+const meta = load("meta");
+const metrics = load("metrics");
+const stratF = load<Frame>("strategies");
+const st = metrics.strategies;
+const contrib = metrics.contrib;
+const cfg = meta.strategy;
+const lines = [
+  { key: "buy_hold", name: "Hold throughout", style: "ghost" as const },
+  { key: "vt_ewma", name: "Size by EWMA", style: "rest" as const },
+  { key: "vt_conformal", name: "Size by conformal", style: "focus" as const },
+];
+const label = `Growth of 1 and fall from peak, ${stratF.dates[0].slice(0, 4)}–${stratF.dates.at(-1)!.slice(0, 4)}. Worst fall: holding ${pct(st.buy_hold.max_drawdown)}, conformal sizing ${pct(st.vt_conformal.max_drawdown)}.`;
+const table: [string, string][] = [
+  ["buy_hold", "Hold throughout"],
+  ["vt_ewma", "Target, EWMA forecast"],
+  ["vt_point", "Target, learned forecast"],
+  ["vt_conformal", "Target, conformal upper bound"],
+  ["alloc_equal", "Target, equal weights"],
+  ["alloc_erc", "Target, risk parity"],
+];
+const tickers: string[] = meta.data.tickers;
+---
+<section class="chapter" id="sizing" aria-labelledby="sizing-h">
+  <ChapterOpener n="8" title="Sizing positions" minutes={3} question="Does an honest error bar make a portfolio better?" hid="sizing-h" />
+
+  <div class="prose">
+    <p>
+      A risk forecast earns its keep when it changes a decision. The simplest decision is how much to
+      hold. <Term id="vol-target" title="Scale the position so its expected volatility matches a fixed target; hold less when risk is high.">Volatility targeting</Term>
+      aims for a steady {pct(cfg.target_vol, 0)} a year: hold less when the forecast says markets are rough,
+      more when calm, up to {cfg.max_leverage}× and after {cfg.cost_bps} basis points of trading cost.
+    </p>
+    <p>
+      The conformal version sizes on the top of the range rather than the middle: it plans for the
+      rough end of what the forecast admits is possible.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="I"
+      title="Sizing to a volatility target halved the worst fall"
+      source={`Daily, net of ${cfg.cost_bps}bp costs. Top: growth of 1, log scale. Bottom: fall from the previous peak; shaded is holding throughout, the line is conformal sizing. Black: conformal sizing; dashed: EWMA sizing; grey: holding throughout.`}
+      id="exhibit-i"
+    >
+      <EquityChart frame={stratF} lines={lines} label={label} />
+      <EquityChart frame={stratF} lines={lines} label={label} narrow />
+    </Exhibit>
+  </div>
+
+  <table class="data">
+    <caption class="visually-hidden">Strategy results</caption>
+    <thead>
+      <tr><th scope="col">Rule</th><th scope="col" class="num">Return</th><th scope="col" class="num">Volatility</th><th scope="col" class="num">Sharpe</th><th scope="col" class="num">Worst fall</th></tr>
+    </thead>
+    <tbody>
+      {table.map(([k, name]) => (
+        <tr class={k === "vt_conformal" ? "focus" : ""}>
+          <th scope="row">{name}</th>
+          <td class="num">{pct(st[k].ann_return)}</td>
+          <td class="num">{pct(st[k].ann_vol)}</td>
+          <td class="num">{st[k].sharpe.toFixed(2)}</td>
+          <td class="num">{pct(st[k].max_drawdown)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="table-note">“Target” rules aim for {pct(cfg.target_vol, 0)} volatility. Annualized, {stratF.dates[0].slice(0, 4)}–{stratF.dates.at(-1)!.slice(0, 4)}, net of costs. Sharpe ignores the cash rate.</p>
+
+  <div class="prose">
+    <p>
+      Any volatility target cuts the worst fall roughly in half. The conformal one does slightly better
+      on every risk measure: the lowest volatility ({pct(st.vt_conformal.ann_vol)} against a {pct(cfg.target_vol, 0)} target), the
+      smallest worst fall and the mildest worst month ({pct(st.vt_conformal.worst_month)} against
+      {" "}{pct(st.buy_hold.worst_month)}). The edge over a plain EWMA target is real but small, and it is
+      bought with some return.
+    </p>
+    <p>
+      Two other results are worth stating. A desk that caps one-day 99% VaR at {pct(cfg.var_limit, 0)} of capital
+      broke the cap on {pct(st.var_limit_conformal.limit_breach_rate, 2)} of days when sizing on conformal VaR,
+      and {pct(st.var_limit_gaussian.limit_breach_rate, 2)} on normal-distribution VaR. And risk parity, which
+      equalizes each asset's share of risk, did not beat equal weights here (Sharpe
+      {" "}{st.alloc_erc.sharpe.toFixed(2)} against {st.alloc_equal.sharpe.toFixed(2)}). The reason is visible in the risk
+      split: crude oil alone carried {pct(contrib.mean.USO, 0)} of the portfolio's risk on an average day,
+      from a quarter of its money.
+    </p>
+  </div>
+
+  <table class="data">
+    <caption class="visually-hidden">Share of portfolio risk by holding</caption>
+    <thead>
+      <tr><th scope="col">Share of risk</th><th scope="col" class="num">Average</th><th scope="col" class="num">Lowest</th><th scope="col" class="num">Highest</th></tr>
+    </thead>
+    <tbody>
+      {tickers.map((t) => (
+        <tr>
+          <th scope="row">{t}</th>
+          <td class="num">{pct(contrib.mean[t], 0)}</td>
+          <td class="num">{pct(contrib.min[t], 0)}</td>
+          <td class="num">{pct(contrib.max[t], 0)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="table-note">Euler risk contributions of the equal-weight portfolio, test period. A negative share means the holding reduced risk that day.</p>
+
+  <PractitionerNotes>
+    <p>
+      Exposure = target ÷ forecast volatility, scaled once on the calibration period so average exposure
+      is comparable across rules (scales: EWMA {cfg.scales.vt_ewma.toFixed(2)}, learned {cfg.scales.vt_point.toFixed(2)},
+      conformal {cfg.scales.vt_conformal.toFixed(2)}), capped at {cfg.max_leverage}×, decided at the close and applied the
+      next day. Costs: {cfg.cost_bps}bp per unit of turnover. Risk parity uses Spinu's Newton method on the EWMA
+      covariance. VaR-limit sizing scales exposure so the forecast VaR equals the limit.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions items={[{ id: "vol-target", term: "Volatility targeting", def: "Scale the position so expected volatility matches a fixed target: hold less when risk is high." }]} />
+  <Pager id="sizing" />
+</section>

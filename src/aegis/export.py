@@ -123,6 +123,19 @@ def golden_values(res: BacktestResult, alphas=(0.05, 0.10)) -> dict:
     return out
 
 
+def _var_frame(df: pd.DataFrame) -> dict:
+    """VaR levels at 1bp, plus a ``<method>_breach`` flag (1/0, null with no forecast) computed at
+    full precision as in ``report.var_metrics``; the rounded levels alone cannot settle ties."""
+    frame = _frame(df, LEVEL_DIGITS)
+    r = df["r_next"].to_numpy(dtype=float)
+    for m in [c for c in df.columns if c != "r_next"]:
+        lvl = df[m].to_numpy(dtype=float)
+        frame["series"][f"{m}_breach"] = [
+            None if np.isnan(v) else int(x < v) for x, v in zip(r, lvl, strict=True)
+        ]
+    return frame
+
+
 def export_site(
     run_dir: Path,
     out_dir: Path,
@@ -163,7 +176,7 @@ def export_site(
         written.append(_write(out_dir, "calibration", _frame(res.vol_cal)))
         written.append(_write(out_dir, "golden", golden_values(res), digits=None))
     written.append(_write(out_dir, "aci_alpha", _frame(res.alpha_paths, 5)))
-    var = {str(a): _frame(df, LEVEL_DIGITS) for a, df in res.var.items()}
+    var = {str(a): _var_frame(df) for a, df in res.var.items()}
     written.append(_write(out_dir, "var", var))
     for name, digits in (("es", LEVEL_DIGITS), ("var_long", LEVEL_DIGITS), ("contrib", 3)):
         df = getattr(res, name)

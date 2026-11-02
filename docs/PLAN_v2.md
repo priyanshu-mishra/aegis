@@ -185,9 +185,9 @@ Navigation: a slim chapter progress rail (sticky on desktop, a top bar on mobile
 | V2 | **Portfolio application** ✅ | Vol-targeting and VaR-limit backtests, risk parity, transaction costs, metrics. Result: vol targeting halves drawdown; conformal sizing adds a small edge; conformal VaR limits are breached 0.82% of days vs 1.81% with Gaussian VaR; risk parity did not help. | 2 d |
 | V3 | **Methods** ✅ | FHS and GJR-GARCH baselines, DtACI, Mondrian conformal, sensitivity grid. FHS matches conformal calibration with less capital; DtACI gives the most even regime coverage; Mondrian fixes high-vol coverage but its cut-offs drift; ACI hits target at every α and across a 50× range of γ. | 1.5 d |
 | V4 | **Data export and pipeline** ✅ | `aegis export-site`, JSON schema, nightly Actions workflow, fallback to last good data. 22 files, 1.9 MB raw / 0.43 MB gzipped, loaded per chapter. | 1 d |
-| V5 | **Design system** | Tokens, type, layout, chart theme, component library, design critique pass | 1.5 d |
-| V6 | **Story chapters 0–5** | Hero to ACI, including both conformal playgrounds | 2.5 d |
-| V7 | **Story chapters 6–11** | VaR/Basel, portfolio, text demo, honesty, scorecard, appendix | 2.5 d |
+| V5 | **Design system** ✅ | "Prospectus" direction: white paper, black ink, one red for misses and breaches; Source Serif 4; lettered exhibits with table views; DESIGN.md. Charts are build-time SVG (d3-scale/shape) drawn wide and narrow. | 1.5 d |
+| V6 | **Story chapters 0–5** ✅ | Cover to ACI, with split-conformal and ACI playgrounds that share one α and match golden.json exactly in the browser. | 2.5 d |
+| V7 | **Story chapters 6–11** ✅ | Tail risk, Basel view, sizing, a live lexicon parser (matches Python), risk factors, and how it was checked. Breach flags now exported at full precision. | 2.5 d |
 | V8 | **Publish** | GitHub Pages deploy, OG image/social card, Lighthouse/accessibility in CI, README links to the site | 0.5 d |
 | V9 | **Polish and review** | Mobile pass, reduced motion, comprehension check, copy edit, model validation report (A3) | 1 d |
 

@@ -1,0 +1,125 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import BreachStrip from "../components/BreachStrip.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import { load, pct, type Frame } from "../lib/data";
+
+const meta = load("meta");
+const golden = load("golden");
+const metrics = load("metrics");
+const varAll = load<Record<string, Frame>>("var");
+const v99 = metrics.var["0.01"];
+const es = metrics.es;
+const testDays: number = meta.splits.test.rows;
+const rows = [
+  { key: "gaussian", name: "Normal distribution (RiskMetrics)" },
+  { key: "hist", name: "Historical simulation" },
+  { key: "garch", name: "GARCH(1,1)" },
+  { key: "fhs", name: "Filtered historical simulation" },
+  { key: "aci", name: "Conformal, ACI", focus: true },
+].map((r) => ({ ...r, rate: v99[`${r.key}_var`].breach_rate as number }));
+const nDays: number = v99.aci_var.days;
+const label = `Days each model's 99% one-day loss limit was breached. Normal distribution: ${pct(v99.gaussian_var.breach_rate, 2)} of days; conformal ACI: ${pct(v99.aci_var.breach_rate, 2)}.`;
+const esNames: Record<string, string> = {
+  gaussian: "Normal distribution", hist: "Historical simulation", garch: "GARCH(1,1)",
+  gjr: "GJR-GARCH", fhs: "Filtered historical simulation", split: "Conformal, split",
+  rolling: "Conformal, rolling", dtaci: "Conformal, DtACI", aci: "Conformal, ACI",
+};
+---
+<section class="chapter" id="tails" aria-labelledby="tails-h">
+  <ChapterOpener n="6" title="Tail risk" minutes={3} question="What is the worst day you should plan for?" hid="tails-h" />
+
+  <div class="prose">
+    <p>
+      Volatility describes a normal week. Risk managers care most about the bad days, so the same
+      machinery is pointed at the left tail of next-day returns. Value at Risk at 99% is the loss the
+      portfolio should beat on 99 days out of 100. Over {testDays.toLocaleString("en-GB")} test days, an honest
+      model should be breached about {Math.round(testDays * 0.01)} times, and the breaches should be
+      scattered, not bunched.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="G"
+      title="Every day each model's 99% loss limit was breached"
+      source={`One-day 99% VaR, ${meta.splits.test.start.slice(0, 4)}–${meta.splits.test.end.slice(0, 4)}. Each red tick is one day the next-day loss was worse than the limit; the number at the right counts them. An honest model has about ${Math.round(testDays * 0.01)}, spread out.`}
+      id="exhibit-g"
+    >
+      <BreachStrip frame={varAll["0.01"]} rows={rows} label={label} />
+      <BreachStrip frame={varAll["0.01"]} rows={rows} label={label} narrow />
+      <table slot="table">
+        <thead>
+          <tr><th scope="col">Model</th><th scope="col">Breaches</th><th scope="col">Breach rate</th><th scope="col">Kupiec p</th><th scope="col">Christoffersen p</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr>
+              <td>{r.name}</td>
+              <td>{Math.round(r.rate * nDays)}</td>
+              <td>{pct(v99[`${r.key}_var`].breach_rate, 2)}</td>
+              <td>{v99[`${r.key}_var`].kupiec_p.toFixed(3)}</td>
+              <td>{v99[`${r.key}_var`].christoffersen_p.toFixed(3)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      The normal-distribution model's breaches pile up in 2020 and again in later sell-offs: it was
+      calm when it should have been wary. The counts hide one thing: the adaptive model's breaches
+      also bunch up (its independence test p-value is {v99.aci_var.christoffersen_p.toFixed(3)}), so it
+      passes the rate test but fails the clustering test. Split and rolling conformal pass both, and so
+      does filtered historical simulation, a strong classical model. Chapter 10 comes back to that.
+    </p>
+    <p>
+      VaR says where the bad days start, not how bad they get. Regulators now ask for <Term
+        id="es"
+        title="Expected Shortfall: the average loss on the days worse than the VaR level.">Expected Shortfall</Term
+      > at 97.5%: the average loss on the worst 2.5% of days. Conformal methods give it directly, as the
+      average of the past misses beyond the cut-off.
+    </p>
+  </div>
+
+  <table class="data">
+    <caption class="visually-hidden">Expected Shortfall backtest at 97.5%</caption>
+    <thead>
+      <tr><th scope="col">Model</th><th scope="col" class="num">Days past 97.5% VaR</th><th scope="col" class="num">Average ES</th><th scope="col" class="num">Z₂ score</th></tr>
+    </thead>
+    <tbody>
+      {Object.entries(esNames).map(([k, name]) => (
+        <tr class={k === "aci" ? "focus" : ""}>
+          <th scope="row">{name}</th>
+          <td class="num">{pct(es[k].breach_rate, 2)}</td>
+          <td class="num">{pct(es[k].mean_es, 2)}</td>
+          <td class="num">{es[k].z2.toFixed(2)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="table-note">
+    Target 2.50% of days. Z₂ (Acerbi and Székely) near 0 means the average shortfall was about right;
+    below −0.70 would mean it was understated. Every model stays in the green zone; the adaptive conformal
+    ones sit closest to 0.
+  </p>
+
+  <PractitionerNotes>
+    <p>
+      Conformal VaR uses a one-sided lower-tail score on next-day returns with the ACI update and an α
+      floor of {golden.floor_ratio}α, which keeps the limit finite through breach clusters at 99%. Kupiec is the
+      unconditional coverage likelihood-ratio test; Christoffersen tests independence of breaches.
+      ES for the conformal methods is the mean of calibration scores beyond the quantile; Z₂ uses the
+      realized loss on breach days scaled by the forecast ES.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions items={[{ id: "es", term: "Expected Shortfall", def: "The average loss on the days worse than the VaR level; Basel's preferred tail measure." }]} />
+  <Pager id="tails" />
+</section>

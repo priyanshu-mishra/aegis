@@ -1,0 +1,116 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import ParserDemo from "../islands/ParserDemo.svelte";
+import { load, pct } from "../lib/data";
+
+const rules = load("lexicon");
+const news = load<any[]>("news");
+const lex = load<any[]>("ablation_default");
+const slmRun = load<any[]>("ablation_ollama");
+const acc1 = load("slm_accuracy");
+const acc2 = load("slm_accuracy_v2");
+const bench = load("benchmark");
+
+const pick = (d: string) => news.find((n) => n.published.startsWith(d));
+const sampleDates = ["2020-03-15", "2022-03-16", "2024-09-18"];
+const samples = [
+  ...sampleDates.map(pick).filter(Boolean).map((n) => ({
+    label: `Fed, ${new Date(n.published).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })}`,
+    // Excerpts are cut at a fixed length; end them at the last full sentence.
+    text: n.excerpt.slice(0, n.excerpt.lastIndexOf(".") + 1) || n.excerpt,
+  })),
+  { label: "A made-up headline", text: "Oil prices surged after the conflict escalated; credit spreads widened sharply." },
+];
+const base = lex.find((r) => r.variant === "prices only");
+const withLex = lex.find((r) => r.variant.includes("lexicon"));
+const withSlm = slmRun.find((r) => r.variant.includes("ollama"));
+const worse = (r: any) => r.rmse / base.rmse - 1;
+const firstNews = news[0].published.slice(0, 4);
+const lastNews = news.at(-1).published.slice(0, 4);
+const hi = "100.0", lo = "2.0";
+---
+<section class="chapter" id="text" aria-labelledby="text-h">
+  <ChapterOpener n="9" title="Do words help?" minutes={3} question="Can a model read the news and forecast risk better?" hid="text-h" />
+
+  <div class="prose">
+    <p>
+      Prices react to what central banks say. I tested whether reading the Federal Reserve's own words
+      sharpens the forecast. Each of the {news.length} FOMC statements from {firstNews} to {lastNews} is turned into
+      six numbers: is it saying rates, inflation, growth, energy, geopolitical risk or credit stress are
+      rising or falling? Two readers did the job: a hand-written <Term id="lexicon" title="A fixed list of phrase rules, e.g. 'raise the target range' means rates rising.">lexicon</Term>
+      and a small language model (qwen2.5, 3 billion parameters) running locally.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="J"
+      title="The lexicon reader, running in your browser"
+      source="The same phrase rules as the Python pipeline (exported to lexicon.json); the browser port matches Python on a fixed test set. Fed samples are the opening of each statement, so their shocks differ from those computed on the full text."
+      id="exhibit-j"
+    >
+      <ParserDemo client:visible rules={rules} samples={samples} />
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      Try the March 2020 statement, issued on a Sunday as the Fed cut rates to zero in an emergency.
+      Its opening fires none of the rules: the lexicon only notices the risk words (“harmed”,
+      “disrupted”) and says volatility should rise. Rules are fast and transparent, but they only
+      know the phrases someone thought to write down.
+    </p>
+    <p>
+      Then the honest result: neither reader helped. Adding the lexicon's signals made the volatility
+      forecast {pct(worse(withLex))} worse; the language model's made it {pct(worse(withSlm))} worse. My reading: about eight
+      statements a year are too sparse to move a daily forecast that already sees the VIX, which
+      prices the same news within minutes. Text is switched off in every result on this page.
+    </p>
+  </div>
+
+  <table class="data">
+    <caption class="visually-hidden">Text ablation on real data</caption>
+    <thead>
+      <tr><th scope="col">Forecast inputs</th><th scope="col" class="num">Forecast error</th><th scope="col" class="num">ACI coverage</th></tr>
+    </thead>
+    <tbody>
+      <tr class="focus"><th scope="row">Prices only</th><td class="num">{base.rmse.toFixed(3)}</td><td class="num">{pct(base.aci_coverage)}</td></tr>
+      <tr><th scope="row">Prices + lexicon</th><td class="num">{withLex.rmse.toFixed(3)}</td><td class="num">{pct(withLex.aci_coverage)}</td></tr>
+      <tr><th scope="row">Prices + language model</th><td class="num">{withSlm.rmse.toFixed(3)}</td><td class="num">{pct(withSlm.aci_coverage)}</td></tr>
+    </tbody>
+  </table>
+  <p class="table-note">Root mean squared error of log volatility on the test period; lower is better.</p>
+
+  <div class="prose">
+    <p>
+      Along the way the language model looked worse than it was, because of a bug of mine. The first
+      schema named each factor neutrally and stated a sign rule (“credit: positive means stress”). The
+      model kept reversing it. On synthetic headlines with a known answer it agreed with the true
+      direction only {pct(acc1[hi].slm.sign_agree, 0)} of the time. Renaming each field after its positive
+      direction (“credit_stress”) took that to {pct(acc2[hi].slm.sign_agree, 0)}, and its correlation with the
+      true shock from {acc1[hi].slm.corr_true_z.toFixed(2)} to {acc2[hi].slm.corr_true_z.toFixed(2)}, slightly ahead of
+      the lexicon's {acc2[hi].lex.corr_true_z.toFixed(2)}. It is also roughly
+      {" "}{(Math.round(bench.slm_parse.p50_ms / bench.lexicon_parse.p50_ms / 1000) * 1000).toLocaleString("en-GB")} times slower: {(bench.slm_parse.p50_ms / 1000).toFixed(1)} seconds a text against
+      {" "}{bench.lexicon_parse.p50_ms.toFixed(2)} milliseconds.
+    </p>
+  </div>
+
+  <PractitionerNotes>
+    <p>
+      Text reaches the features only through an as-of store keyed on each statement's exact release
+      time, so no statement is used before it was public. Names and dates are masked before the
+      language model sees a statement, to limit look-ahead from its training data. Synthetic accuracy: headlines generated from known shocks at two signal-to-noise
+      levels; at the noisy level ({lo}) the correlations are lexicon {acc2[lo].lex.corr_true_z.toFixed(2)} and language model
+      {" "}{acc2[lo].slm.corr_true_z.toFixed(2)}. Language-model results come from local runs with Ollama; the nightly build reuses
+      the committed copies.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions items={[{ id: "lexicon", term: "Lexicon", def: "A fixed list of phrase rules, e.g. “raise the target range” means rates rising." }]} />
+  <Pager id="text" />
+</section>

@@ -1,0 +1,118 @@
+---
+// Growth of 1 under each sizing rule (log scale), and below it the fall from each line's peak.
+import { scaleLinear, scaleLog, scaleUtc } from "d3-scale";
+import { area, line } from "d3-shape";
+import type { Frame } from "../lib/data";
+
+interface Props {
+  frame: Frame; // strategies.json
+  lines: { key: string; name: string; style: "focus" | "rest" | "ghost" }[];
+  label: string;
+  narrow?: boolean;
+}
+const { frame, lines, label, narrow = false } = Astro.props;
+const W = narrow ? 400 : 720;
+const H1 = narrow ? 220 : 260, H2 = narrow ? 110 : 130, gap = 26;
+const m = { left: 44, right: narrow ? 12 : 120, top: 10, bottom: 26 };
+const dates = frame.dates.map((d) => new Date(d));
+const x = scaleUtc().domain([dates[0], dates.at(-1)!]).range([m.left, W - m.right]);
+const curves = lines.map((l) => {
+  const r = frame.series[`${l.key}_net`];
+  let w = 1, peak = 1;
+  const wealth: number[] = [], dd: number[] = [];
+  for (const v of r) {
+    w *= 1 + (v ?? 0);
+    peak = Math.max(peak, w);
+    wealth.push(w);
+    dd.push(w / peak - 1);
+  }
+  return { ...l, wealth, dd };
+});
+const all = curves.flatMap((c) => c.wealth);
+const y = scaleLog().domain([Math.min(...all) * 0.97, Math.max(...all) * 1.03]).range([H1 - m.bottom, m.top]);
+const ddMin = Math.min(...curves.flatMap((c) => c.dd));
+const top2 = H1 + gap;
+const y2 = scaleLinear().domain([ddMin * 1.05, 0]).range([top2 + H2 - m.bottom, top2]);
+const path = (vals: number[], ys: (v: number) => number) =>
+  line<number>().x((_, i) => x(dates[i])).y((v) => ys(v))(vals) ?? "";
+const ghost = curves.find((c) => c.style === "ghost");
+const ddArea = ghost
+  ? area<number>().x((_, i) => x(dates[i])).y0(y2(0)).y1((v) => y2(v))(ghost.dd) ?? ""
+  : "";
+const yTicks = [0.8, 1, 1.25, 1.5, 1.75, 2, 2.5].filter((t) => t >= y.domain()[0] && t <= y.domain()[1]);
+const ddTicks = [-0.3, -0.2, -0.1, 0].filter((t) => t >= y2.domain()[0]);
+const y0 = dates[0].getUTCFullYear(), y1 = dates.at(-1)!.getUTCFullYear();
+const years = Array.from({ length: y1 - y0 + 1 }, (_, i) => y0 + i)
+  .filter((_, i) => !narrow || i % 2 === 0)
+  .map((yr) => ({ yr, x: x(new Date(Date.UTC(yr, 6, 1))) }))
+  .filter((t) => t.x >= m.left && t.x <= W - m.right);
+const H = top2 + H2;
+// End labels, nudged apart so they never overlap.
+const ends = curves.map((c) => ({ name: c.name, style: c.style, y: y(c.wealth.at(-1)!) })).sort((a, b) => a.y - b.y);
+for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 16) ends[i].y = ends[i - 1].y + 16;
+---
+<svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label} class={narrow ? "only-narrow" : "only-wide"}>
+  {
+    yTicks.map((t) => (
+      <g>
+        <line x1={m.left} x2={W - m.right} y1={y(t)} y2={y(t)} class="grid" />
+        <text x={m.left - 6} y={y(t)} class="tick" text-anchor="end" dominant-baseline="middle">{t}</text>
+      </g>
+    ))
+  }
+  {curves.map((c) => <path d={path(c.wealth, y)} class={`ln ${c.style}`} />)}
+  {!narrow && ends.map((e) => <text x={W - m.right + 8} y={e.y} class={`end ${e.style}`} dominant-baseline="middle">{e.name}</text>)}
+  <text x={m.left} y={top2 - 6} class="panel">Fall from peak</text>
+  {
+    ddTicks.map((t) => (
+      <g>
+        <line x1={m.left} x2={W - m.right} y1={y2(t)} y2={y2(t)} class="grid" />
+        <text x={m.left - 6} y={y2(t)} class="tick" text-anchor="end" dominant-baseline="middle">{Math.round(t * 100)}%</text>
+      </g>
+    ))
+  }
+  <path d={ddArea} class="dd-ghost" />
+  {curves.filter((c) => c.style === "focus").map((c) => <path d={path(c.dd, y2)} class="ln focus" />)}
+  {years.map((t) => <text x={t.x} y={H - 6} class="tick" text-anchor="middle">{t.yr}</text>)}
+</svg>
+
+<style>
+  .grid {
+    stroke: var(--rule);
+  }
+  .tick,
+  .panel {
+    font-size: 13px;
+    fill: var(--ink-3);
+    font-family: var(--serif);
+  }
+  .ln {
+    fill: none;
+    stroke-linejoin: round;
+  }
+  .ln.focus {
+    stroke: var(--ink);
+    stroke-width: 1.75;
+  }
+  .ln.rest {
+    stroke: var(--ink-3);
+    stroke-width: 1.25;
+    stroke-dasharray: 4 3;
+  }
+  .ln.ghost {
+    stroke: var(--ghost);
+    stroke-width: 1.25;
+  }
+  .dd-ghost {
+    fill: var(--band);
+  }
+  .end {
+    font-size: 13px;
+    font-family: var(--serif);
+    fill: var(--ink-3);
+  }
+  .end.focus {
+    fill: var(--ink);
+    font-weight: 600;
+  }
+</style>

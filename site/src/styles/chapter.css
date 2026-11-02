@@ -108,3 +108,53 @@
     columns: 1;
   }
 }
+
+/* A data table set in the reading column: small-caps head, hairline rows, figures right. */
+table.data {
+  width: 100%;
+  max-width: var(--measure);
+  border-collapse: collapse;
+  margin: var(--s2) 0 0;
+  font-size: 1rem;
+}
+table.data thead th {
+  font-size: var(--step--1);
+  font-variant-caps: all-small-caps;
+  letter-spacing: 0.08em;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 1px solid var(--rule-strong);
+  padding: 0 0 var(--s-1);
+}
+table.data tbody th,
+table.data td {
+  padding: var(--s-1) 0;
+  border-bottom: 1px solid var(--rule);
+  text-align: left;
+  font-weight: 400;
+  vertical-align: top;
+}
+table.data .num {
+  text-align: right;
+  white-space: nowrap;
+  padding-left: var(--s1);
+}
+table.data .focus th,
+table.data .focus td {
+  font-weight: 600;
+}
+.table-note {
+  max-width: var(--measure);
+  margin-top: var(--s0);
+  font-size: var(--step--1);
+  color: var(--ink-3);
+}
+
+@media (max-width: 600px) {
+  table.data {
+    font-size: 0.875rem;
+  }
+  table.data .num {
+    padding-left: var(--s0);
+  }
+}

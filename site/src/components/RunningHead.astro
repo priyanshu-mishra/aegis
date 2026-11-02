@@ -4,6 +4,7 @@ interface Chapter {
   n: string;
   id: string;
   title: string;
+  short: string;
   ready: boolean;
 }
 interface Props {
@@ -21,9 +22,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       {
         ready.map((c) => (
           <li>
-            <a href={`#${c.id}`}>
+            <a href={`#${c.id}`} title={c.title}>
               <span class="n">{c.n}</span>
-              {c.title}
+              {c.short}
             </a>
           </li>
         ))
@@ -66,6 +67,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   nav {
     overflow-x: auto;
     scrollbar-width: none;
+  }
+  /* When the list is wider than the head, fade its right edge so it reads as scrollable. */
+  @media (max-width: 1100px) {
+    nav {
+      mask-image: linear-gradient(to right, #000 calc(100% - 2.5rem), transparent);
+      padding-right: 2rem;
+    }
   }
   ol {
     display: flex;

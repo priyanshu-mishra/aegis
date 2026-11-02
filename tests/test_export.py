@@ -110,3 +110,14 @@ def test_cli_export_site(tmp_path):
     assert (tmp_path / "data" / "prices.json").exists()
     res = BacktestResult.load(tmp_path / "reports" / "synthetic")
     assert res.vol_cal is not None
+
+
+def test_var_breach_flags_match_metrics(exported):
+    """The exported breach flags reproduce every breach rate in metrics.json exactly."""
+    _, out = exported
+    var, metrics = _load(out, "var"), _load(out, "metrics")
+    for a, frame in var.items():
+        for m, stats in metrics["var"][a].items():
+            flags = [f for f in frame["series"][f"{m}_breach"] if f is not None]
+            assert len(flags) == stats["days"]
+            assert sum(flags) / len(flags) == pytest.approx(stats["breach_rate"], abs=1e-6)

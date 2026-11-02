@@ -9,6 +9,12 @@ import Portfolio from "../chapters/Portfolio.astro";
 import Forecast from "../chapters/Forecast.astro";
 import Intervals from "../chapters/Intervals.astro";
 import Adapt from "../chapters/Adapt.astro";
+import Tails from "../chapters/Tails.astro";
+import Regulator from "../chapters/Regulator.astro";
+import Sizing from "../chapters/Sizing.astro";
+import Text from "../chapters/Text.astro";
+import RiskFactors from "../chapters/RiskFactors.astro";
+import Checks from "../chapters/Checks.astro";
 import { chapters } from "../lib/chapters";
 import { annual, formatDate, load, pct, slice, type Frame } from "../lib/data";
 
@@ -114,8 +120,7 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
         <p class="risk">
           <span class="sc">Risk factors.</span> Not everything worked. News text added nothing on real
           data, a simpler model matched the calibration with less capital set aside, and I found and
-          fixed a bug in the language-model parser. Each is disclosed in chapter 10; until it is written,
-          the <a href="https://github.com/priyanshu-mishra/aegis#what-didnt-work">project notes</a> list them.
+          fixed four bugs in my own pipeline. Each is disclosed in <a href="#risk-factors">chapter 10</a>.
         </p>
 
         <p class="byline">
@@ -166,16 +171,13 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
     <Forecast />
     <Intervals />
     <Adapt />
+    <Tails />
+    <Regulator />
+    <Sizing />
+    <Text />
+    <RiskFactors />
+    <Checks />
 
-    <section class="chapter contents" id="contents" aria-labelledby="next-h">
-      <h2 id="next-h">The rest of the study</h2>
-      <p class="pending-note">These chapters are being written; the data behind each is already published with the code.</p>
-      <ol>
-        {chapters.filter((c) => !c.ready).map((c) => (
-          <li><span class="n">{c.n}</span> {c.title}</li>
-        ))}
-      </ol>
-    </section>
   </main>
 </Base>
 

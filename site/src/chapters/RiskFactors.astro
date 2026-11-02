@@ -1,0 +1,129 @@
+---
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Pager from "../components/Pager.astro";
+import { load, pct } from "../lib/data";
+
+const metrics = load("metrics");
+const basel = metrics.basel;
+const v99 = metrics.var["0.01"];
+const vm = metrics.vol;
+const st = metrics.strategies;
+const long = metrics.var_long;
+const lex = load<any[]>("ablation_default");
+const slm = load<any[]>("ablation_ollama");
+const base = lex[0].rmse;
+const lexWorse = lex.find((r) => r.variant.includes("lexicon")).rmse / base - 1;
+const slmWorse = slm.find((r) => r.variant.includes("ollama")).rmse / base - 1;
+const meta = load("meta");
+---
+<section class="chapter" id="risk-factors" aria-labelledby="risk-factors-h">
+  <ChapterOpener n="10" title="Risk factors" minutes={3} question="What did not work, and what should you not conclude?" hid="risk-factors-h" />
+
+  <div class="prose">
+    <p>
+      A prospectus puts the risks in writing before anyone invests. These are the results that went
+      against me, the bugs I found in my own work, and the limits of the evidence.
+    </p>
+  </div>
+
+  <ol class="factors">
+    <li>
+      <h3>News text did not improve the forecast.</h3>
+      <p>
+        Adding FOMC statements made the volatility forecast worse: {pct(lexWorse)} with the lexicon,
+        {" "}{pct(slmWorse)} with the language model. Text is off in every headline result (<a href="#text">chapter 9</a>).
+      </p>
+    </li>
+    <li>
+      <h3>A classical model matched the calibration more cheaply.</h3>
+      <p>
+        Filtered historical simulation was green on {pct(basel.fhs.green)} of days, passed both breach tests at
+        99% (Kupiec p {v99.fhs_var.kupiec_p.toFixed(2)}, Christoffersen p {v99.fhs_var.christoffersen_p.toFixed(2)}), and implied
+        capital of {pct(basel.fhs.mean_capital)} against {pct(basel.aci.mean_capital)} for adaptive conformal. Conformal's
+        advantage is that it needs no model of the return distribution, not that it wins every test.
+      </p>
+    </li>
+    <li>
+      <h3>The adaptive model's breaches cluster.</h3>
+      <p>
+        At 99% its breach rate is right ({pct(v99.aci_var.breach_rate, 2)}) but its breaches bunch together
+        (Christoffersen p {v99.aci_var.christoffersen_p.toFixed(3)}). It learns from a miss only after it happens,
+        so the first days of a shock still get through.
+      </p>
+    </li>
+    <li>
+      <h3>Regime-specific cut-offs over-correct.</h3>
+      <p>
+        Mondrian conformal fixed stormy-market coverage ({pct(vm.mondrian.by_tercile.high)}) but under-covered calm
+        markets ({pct(vm.mondrian.by_tercile.low)}): the volatility levels that define each regime drifted after the
+        calibration years.
+      </p>
+    </li>
+    <li>
+      <h3>Risk parity did not help.</h3>
+      <p>
+        With the same volatility target, equal risk contributions gave a Sharpe ratio of
+        {" "}{st.alloc_erc.sharpe.toFixed(2)} against {st.alloc_equal.sharpe.toFixed(2)} for equal weights, while trading {(st.alloc_erc.annual_turnover / st.alloc_equal.annual_turnover).toFixed(1)} times as much
+        (annual turnover {st.alloc_erc.annual_turnover.toFixed(1)}× against {st.alloc_equal.annual_turnover.toFixed(1)}×).
+      </p>
+    </li>
+    <li>
+      <h3>I found and fixed four bugs in my own pipeline.</h3>
+      <p>
+        The language-model schema invited sign errors (chapter 9). At 99% the adaptive VaR could become
+        infinite after a cluster of misses and stay so for years; a floor on the working level fixed it.
+        The metrics had silently dropped those infinite days, flattering the breach rate. And DtACI
+        under-covered when outcomes arrive late, until its experts were scored on the levels it had
+        actually issued. Each fix has a test.
+      </p>
+    </li>
+    <li>
+      <h3>The evidence is narrow.</h3>
+      <p>
+        One portfolio of four funds; one test period, {meta.splits.test.start.slice(0, 4)}–{meta.splits.test.end.slice(0, 4)}, with
+        one crash; free daily data from Yahoo Finance; trading costs modelled as a flat
+        {" "}{meta.strategy.cost_bps} basis points. The ten-day regulatory test rests on {long.aci.n_nonoverlap} non-overlapping windows,
+        too few to separate most models. None of this is investment advice.
+      </p>
+    </li>
+  </ol>
+
+  <Pager id="risk-factors" />
+</section>
+
+<style>
+  .factors {
+    max-width: var(--measure);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    counter-reset: rf;
+    border-top: 1px solid var(--rule-strong);
+  }
+  .factors li {
+    counter-increment: rf;
+    display: grid;
+    grid-template-columns: 2.25rem 1fr;
+    column-gap: var(--s0);
+    padding: var(--s1) 0;
+    border-bottom: 1px solid var(--rule);
+  }
+  .factors li::before {
+    content: counter(rf) ".";
+    grid-row: 1 / span 2;
+    color: var(--ink-3);
+    font-weight: 600;
+  }
+  .factors h3 {
+    font-size: 1.0625rem;
+    font-weight: 600;
+    line-height: 1.4;
+    margin: 0 0 var(--s-1);
+  }
+  .factors p {
+    grid-column: 2;
+    margin: 0;
+    font-size: 1rem;
+    color: var(--ink-2);
+  }
+</style>

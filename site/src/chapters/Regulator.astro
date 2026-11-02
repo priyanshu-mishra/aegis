@@ -1,0 +1,120 @@
+---
+import Exhibit from "../components/Exhibit.astro";
+import TrafficLight from "../components/TrafficLight.astro";
+import ChapterOpener from "../components/ChapterOpener.astro";
+import Term from "../components/Term.astro";
+import PractitionerNotes from "../components/PractitionerNotes.astro";
+import Definitions from "../components/Definitions.astro";
+import Pager from "../components/Pager.astro";
+import { load, pct, type Frame } from "../lib/data";
+
+const metrics = load("metrics");
+const baselF = load<Frame>("basel");
+const basel = metrics.basel;
+const long = metrics.var_long;
+const rows = [
+  { key: "gaussian", name: "Normal distribution (RiskMetrics)" },
+  { key: "hist", name: "Historical simulation" },
+  { key: "garch", name: "GARCH(1,1)" },
+  { key: "gjr", name: "GJR-GARCH" },
+  { key: "fhs", name: "Filtered historical simulation" },
+  { key: "split", name: "Conformal, split" },
+  { key: "dtaci", name: "Conformal, DtACI" },
+  { key: "aci", name: "Conformal, ACI", focus: true },
+];
+const days: number = basel.aci.days;
+const label = `Basel traffic light by day. Normal distribution: green on ${pct(basel.gaussian.green)} of days; conformal ACI: ${pct(basel.aci.green)}.`;
+const longRows = ["gaussian", "hist", "garch", "fhs", "split", "aci"];
+const longNames: Record<string, string> = Object.fromEntries(rows.map((r) => [r.key, r.name]));
+const n10 = long.aci.n_nonoverlap;
+---
+<section class="chapter" id="regulator" aria-labelledby="regulator-h">
+  <ChapterOpener n="7" title="The regulator's view" minutes={3} question="Would a bank supervisor accept this model?" hid="regulator-h" />
+
+  <div class="prose">
+    <p>
+      Bank supervisors score VaR models with the Basel <Term id="traffic-light" title="Basel's backtest: count breaches of 99% VaR over the last 250 days. 0–4 green, 5–9 yellow, 10 or more red.">traffic light</Term>.
+      Every day they count the breaches of the 99% limit over the past 250 trading days. Up to four is
+      green. Five to nine is yellow, and the bank must hold more capital. Ten or more is red, and the
+      model can be withdrawn.
+    </p>
+  </div>
+
+  <div class="exhibit-wide">
+    <Exhibit
+      letter="H"
+      title="Which zone each model sat in, day by day"
+      source={`Trailing 250-day count of 99% VaR breaches, from the first full window (${baselF.dates[0]}) on, ${days.toLocaleString("en-GB")} days. Outline only: green zone. Grey: yellow zone. Red: red zone.`}
+      id="exhibit-h"
+    >
+      <TrafficLight frame={baselF} rows={rows} label={label} />
+      <TrafficLight frame={baselF} rows={rows} label={label} narrow />
+      <table slot="table">
+        <thead>
+          <tr><th scope="col">Model</th><th scope="col">Green</th><th scope="col">Yellow</th><th scope="col">Red</th><th scope="col">Most breaches</th></tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr>
+              <td>{r.name}</td>
+              <td>{pct(basel[r.key].green)}</td>
+              <td>{pct(basel[r.key].yellow)}</td>
+              <td>{pct(basel[r.key].red)}</td>
+              <td>{basel[r.key].max_exceptions}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Exhibit>
+  </div>
+
+  <div class="prose">
+    <p>
+      The adaptive conformal model was green on {pct(basel.aci.green)} of days. The normal-distribution
+      model spent {pct(basel.gaussian.yellow)} of its days in yellow, and historical simulation reached red.
+      A model that stays green keeps the capital multiplier at its floor of 3.
+    </p>
+    <p>
+      There is a catch, and it belongs in the open. Green is not free. The capital a bank must hold
+      scales with the VaR itself, and the conformal limits are wider: on average they implied capital of
+      {" "}{pct(basel.aci.mean_capital)} of the portfolio, against {pct(basel.fhs.mean_capital)} for filtered historical
+      simulation, which was green on {pct(basel.fhs.green)} of days. On this portfolio, FHS bought nearly the
+      same calibration more cheaply.
+    </p>
+  </div>
+
+  <table class="data">
+    <caption class="visually-hidden">Ten-day 99% VaR backtest on non-overlapping windows</caption>
+    <thead>
+      <tr><th scope="col">Ten-day 99% VaR</th><th scope="col" class="num">Breached</th><th scope="col" class="num">Kupiec p</th><th scope="col" class="num">Average limit</th></tr>
+    </thead>
+    <tbody>
+      {longRows.map((k) => (
+        <tr class={k === "aci" ? "focus" : ""}>
+          <th scope="row">{longNames[k]}</th>
+          <td class="num">{pct(long[k].breach_rate_nonoverlap, 1)}</td>
+          <td class="num">{long[k].kupiec_p.toFixed(2)}</td>
+          <td class="num">{pct(long[k].mean_var, 1)}</td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+  <p class="table-note">
+    The regulatory horizon is ten days. Tested on {n10} non-overlapping ten-day windows, so a single breach
+    moves the rate by {pct(1 / n10, 1)}: only historical simulation is clearly rejected. Average limit is the
+    ten-day loss level, as a share of the portfolio.
+  </p>
+
+  <PractitionerNotes>
+    <p>
+      Exceptions are assigned to the day the loss is realized. Zones follow the Basel 1996 framework at
+      250 observations (green ≤ 4, yellow 5–9 with plus-factors 0.40–0.85, red ≥ 10, multiplier 4).
+      Capital is the Basel 2.5 market-risk charge, max(VaR<sub>t</sub>, k<sub>t</sub> · mean VaR over 60 days),
+      on the 10-day 99% VaR. The conformal 10-day VaR is fitted on summed 10-day returns, with γ scaled
+      by 1/h because consecutive targets overlap.
+    </p>
+  </PractitionerNotes>
+
+  <Definitions items={[{ id: "traffic-light", term: "Traffic light", def: "Basel's backtest: breaches of 99% VaR in the last 250 days; 0–4 green, 5–9 yellow, 10+ red." }]} />
+  <Pager id="regulator" />
+</section>
