@@ -13,7 +13,14 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 ConformalMethod = Literal[
-    "split_absolute", "split_normalized", "cqr", "rolling", "aci", "one_sided_var"
+    "split_absolute",
+    "split_normalized",
+    "cqr",
+    "rolling",
+    "aci",
+    "dtaci",
+    "mondrian",
+    "one_sided_var",
 ]
 
 
@@ -106,6 +113,8 @@ class ConformalConfig(_Strict):
         "cqr",
         "rolling",
         "aci",
+        "dtaci",
+        "mondrian",
         "one_sided_var",
     ]
     rolling_window: int = Field(500, gt=20)

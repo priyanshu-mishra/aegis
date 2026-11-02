@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 158 offline" src="https://img.shields.io/badge/tests-158%20offline-1baf7a">
+  <img alt="Tests: 168 offline" src="https://img.shields.io/badge/tests-168%20offline-1baf7a">
   <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
 </p>
@@ -15,7 +15,7 @@
 ### Key findings
 
 - **Textbook conformal prediction under-covers on real markets.** Split conformal reaches 93.3% instead of 95%, and 88.9% in 2020, because markets are not exchangeable. **Adaptive Conformal Inference (ACI) recovers 95.0%**, including 94.5% through the COVID year.
-- **Conformal VaR fixes the 99% tail and keeps a bank's model in the green zone.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–0.99% of days against a 1% target and stays in the Basel green zone 94–99% of the time, against 56% for RiskMetrics. The trade-off is honest: being right costs more capital (22–31% vs 18%).
+- **Conformal VaR fixes the 99% tail and keeps a bank's model in the green zone.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–1.05% of days against a 1% target and stays in the Basel green zone 94–99% of the time, against 56% for RiskMetrics. The trade-off is honest: being right costs more capital (22–31% vs 18%), and the strongest classical model, filtered historical simulation, is equally well calibrated with less capital.
 - **Calibrated risk makes better position sizes.** Sizing on the conformal upper bound halves the maximum drawdown of buy & hold (−30% → −13.6%) and lifts Sharpe from 0.75 to 0.97. A 2% daily loss limit set with conformal VaR is breached on 0.82% of days against a 1% target; set with Gaussian VaR, on 1.81%.
 - **Text did not beat prices on real data, and the ablation shows why.** In a synthetic world with a known signal, text only helps when headlines are close to noise-free. Fixing the SLM's schema took its sign accuracy from 70% to 100%, but about eight FOMC statements a year is too sparse a signal.
 
@@ -116,12 +116,15 @@ ACI is the only method that hits 95% overall *and* has the best worst quarter (8
 |---|---|---|
 | Split conformal | 5.49% · pass · fail | 0.82% · pass · pass |
 | Rolling conformal | 5.02% · pass · fail | 0.99% · pass · pass |
-| ACI | 4.91% · pass · **pass** | 0.93% · pass · fail |
-| Gaussian EWMA (RiskMetrics) | 4.96% · pass · fail | 1.93% · **fail** · pass |
-| Historical simulation (250 days) | 5.78% · pass · fail | 1.69% · **fail** · fail |
+| ACI | 4.91% · pass · pass | 0.93% · pass · fail |
+| DtACI | 4.61% · pass · fail | 1.05% · pass · fail |
+| Gaussian EWMA (RiskMetrics) | 4.96% · pass · fail | 1.93% · fail · pass |
+| Historical simulation (250 days) | 5.78% · pass · fail | 1.69% · fail · fail |
 | GARCH(1,1)-t | 5.72% · pass · fail | 1.40% · pass · fail |
+| GJR-GARCH-t | 5.78% · pass · fail | 1.34% · pass · fail |
+| Filtered historical simulation (FHS) | 5.26% · pass · fail | 1.05% · pass · pass |
 
-The Kupiec test checks that the breach rate is right; the Christoffersen test checks that breaches don't cluster. At 95% every method gets the rate right and almost all fail on clustering, since breaches arrive in bursts during crises. At 99% the fat tails show: the Gaussian VaR breaches twice as often as it should. No single method passes everything. Rolling conformal is cleanest at 99%, and ACI is the only method without clustered breaches at 95%.
+The Kupiec test checks that the breach rate is right; the Christoffersen test checks that breaches don't cluster. At 95% every method gets the rate right and almost all fail on clustering, since breaches arrive in bursts during crises. At 99% the fat tails show: the Gaussian VaR breaches twice as often as it should. No single method passes everything. Rolling conformal and filtered historical simulation (FHS) are cleanest at 99%, and ACI is the only method without clustered breaches at 95%.
 
 ### The regulator's view: Expected Shortfall, 10-day VaR and the Basel traffic light
 
@@ -137,16 +140,19 @@ Banks don't stop at 1-day VaR. Basel III / FRTB measures market risk with **Expe
 | Split conformal | -0.16 (green) | 0.58% (pass) | 98% | 5 | 21.8% |
 | Rolling conformal | -0.02 (green) | 0.58% (pass) | 94% | 6 | 23.8% |
 | **ACI** | +0.00 (green) | 0.58% (pass) | 99% | 5 | 30.6% |
+| DtACI | +0.04 (green) | 0.58% (pass) | 96% | 6 | 26.3% |
 | Gaussian EWMA (RiskMetrics) | -0.44 (green) | 1.17% (pass) | 56% | 9 | 18.0% |
 | Historical simulation | -0.54 (green) | 3.51% (fail) | 66% | 12 | 18.7% |
 | GARCH(1,1)-t | -0.26 (green) | 0.58% (pass) | 77% | 8 | 18.1% |
+| GJR-GARCH-t | -0.39 (green) | 0.58% (pass) | 91% | 7 | 17.1% |
+| **Filtered historical simulation** | -0.06 (green) | 0.58% (pass) | 97% | 6 | 19.3% |
 
 How to read this:
 - **ES backtest (Acerbi–Székely Z2):** 0 means ES is right; negative means real tail losses were larger than forecast. Conformal ES comes out closest to 0. RiskMetrics and historical simulation underestimate the tail, though they stay inside the green threshold.
 - **10-day breaches:** measured on non-overlapping windows, because overlapping 10-day windows would count one bad week several times.
 - **Capital:** max(10-day VaR, multiplier × 60-day average), as a share of portfolio value.
 
-Conformal methods spend 94–99% of days in the green zone, against 56% for RiskMetrics, but their more conservative VaR needs more capital even after the incumbent's yellow-zone penalty. That is the real trade-off a risk desk weighs.
+Conformal methods spend 94–99% of days in the green zone, against 56% for RiskMetrics, but their more conservative VaR needs more capital even after the incumbent's yellow-zone penalty. That is the real trade-off a risk desk weighs. The strongest classical model, **filtered historical simulation, matches the conformal methods on calibration (ES Z2 −0.06, 97% green) with about a third less capital than ACI**. The conformal edge is robustness across levels and regimes, not uniqueness.
 
 **Where the risk comes from.** An Euler decomposition of the engine's covariance shows oil (USO) carrying on average **57% of the portfolio's risk with 25% of its weight**, peaking above 100% when Treasuries act as a hedge and take a negative share.
 
@@ -179,6 +185,34 @@ How to read it:
 - **Sizing on the conformal upper bound adds a small but consistent edge:** the shallowest drawdown, the fewest overshoots, and the lowest worst-case volatility.
 - **For risk limits, calibration decides compliance.** A limit set with Gaussian VaR is breached almost twice as often as it is meant to be. Gaussian VaR earns more return only because it runs more risk (average exposure 1.19).
 - **Risk parity didn't help here.** It moves weight from oil (14% on average) to Treasuries (34%) and more than doubles turnover; the full report includes the inverse-vol allocation as well.
+
+### Stronger baselines and adaptive variants
+
+**Filtered historical simulation (FHS)** filters returns through a GARCH model and applies the empirical quantile of the standardized residuals, making it the strongest classical VaR method. **GJR-GARCH** adds the leverage effect (losses raise volatility more than gains). Both join the comparison above, and FHS is the honest benchmark to beat.
+
+**DtACI** (Gibbs & Candès, 2022) removes ACI's one tuning knob. It runs eight ACI copies with step sizes from 0.001 to 0.128 and weights them by recent pinball loss. With overlapping 5-day targets and 5-day-delayed feedback, the published update under-covered (93.5% in simulation). Scoring each expert on the level it actually issued fixed it.
+
+**Mondrian conformal** calibrates a separate threshold for each forecast-volatility regime, the textbook fix for conditional coverage.
+
+| Coverage by forecast-volatility tercile | Low | Mid | High | Overall |
+|---|---|---|---|---|
+| Split conformal | 93.3% | 95.3% | 91.4% | 93.3% |
+| ACI | 93.7% | 96.8% | 94.6% | 95.0% |
+| DtACI | 93.5% | 94.2% | 94.7% | 94.2% |
+| Mondrian | 91.6% | 98.8% | 97.7% | 96.0% |
+
+DtACI gives the most even coverage across regimes, with narrower intervals than ACI. Mondrian fixes the high-volatility tercile, but its regime cut-offs come from calm 2018–2019 data and drift in the test period, so low-volatility days fall short.
+
+**Sensitivity** (`python main.py sensitivity`):
+
+| Target coverage | Split conformal | ACI |
+|---|---|---|
+| 99% | 98.5% | 99.1% |
+| 95% | 93.3% | 95.0% |
+| 90% | 88.4% | 90.2% |
+| 80% | 77.5% | 80.2% |
+
+ACI lands on target at every level, while split conformal falls 0.5–2.5 points short. ACI's coverage stays within 94.9%–95.1% across a 50× range of γ (smaller γ just gives narrower intervals), and results barely move with the EWMA decay λ.
 
 ### What didn't work
 
@@ -257,6 +291,7 @@ The synthetic world answers a question real data can't: *if text contains a sign
 | `ablation -c <config>` | Compare runs with and without text (plus SNR sweep and oracle on synthetic data) |
 | `parse -c <config>` | Parse the news store and print signal statistics |
 | `bench` | Latency benchmark → `reports/benchmark.json` |
+| `sensitivity -c <config>` | Coverage and width across α, γ, rolling window and EWMA λ (`--quick` skips the λ re-runs) |
 | `dashboard` | Streamlit app over all saved runs |
 | `config -c <config>` | Print the resolved configuration |
 
@@ -297,10 +332,11 @@ src/aegis/
   slm_parser.py            RiskSignal schema · masking · lexicon + Ollama backends · SQLite cache
   features.py              HAR / EWMA / VIX features · targets · as-of signal aggregation · clipping
   risk_engine.py           EWMA covariance · shock overlay · point / scale / quantile models
-  conformal_ncm.py         non-conformity scores · split / rolling / ACI · walk-forward runner
-  baselines.py             Gaussian, historical-simulation and GARCH VaR / ES, multi-day GARCH
+  conformal_ncm.py         non-conformity scores · split / rolling / ACI / DtACI / Mondrian · runner
+  baselines.py             Gaussian, historical sim., GARCH / GJR-GARCH and FHS VaR / ES
   risk_measures.py         Expected Shortfall · Acerbi–Székely Z2 · Basel traffic light · capital · Euler
   portfolio.py             vol targeting · VaR limits · risk parity (ERC) · costs · performance metrics
+  sensitivity.py           coverage and width across α, γ, rolling window and EWMA λ
   metrics.py               coverage · Winkler · Kupiec · Christoffersen
   backtest.py              splits with embargo · walk-forward run for both targets
   report.py                metrics.json · figures · markdown report
@@ -308,7 +344,7 @@ src/aegis/
 dashboard/app.py           Streamlit dashboard over reports/*
 scripts/                   make_readme_assets.py: regenerates every chart in this README
 docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
-tests/                     158 offline tests + network and live-SLM tests
+tests/                     168 offline tests + network and live-SLM tests
 ```
 
 </details>

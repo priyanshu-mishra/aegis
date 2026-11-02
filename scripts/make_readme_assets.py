@@ -87,15 +87,17 @@ LABEL = {
     "gaussian": "Gaussian (uncalibrated)", "raw_quantile": "Raw quantile model",
     "split_absolute": "Split conformal", "split_normalized": "Split, normalized",
     "cqr": "CQR", "rolling": "Rolling conformal", "aci": "Adaptive conformal (ACI)",
+    "dtaci": "DtACI (self-tuning ACI)", "mondrian": "Mondrian (per vol regime)",
 }  # fmt: skip
 
 
 def coverage_dots(res, metrics, t, theme):
     """Dot plot: overall coverage and worst quarter per method, with the 95% target."""
     vm = metrics["vol"]
-    order = ["raw_quantile", "split_normalized", "split_absolute", "gaussian", "cqr", "rolling",
-             "aci"]  # fmt: skip
-    fig, ax = plt.subplots(figsize=(8.6, 4.2))
+    order = ["raw_quantile", "split_normalized", "split_absolute", "gaussian", "cqr", "dtaci",
+             "rolling", "mondrian", "aci"]  # fmt: skip
+    order = [m for m in order if m in vm]
+    fig, ax = plt.subplots(figsize=(8.6, 4.8))
     target = 1 - res.info["alpha"]
     ax.axvline(target, color=t["muted"], linestyle=(0, (4, 3)), linewidth=1)
     ax.text(target, len(order) - 0.35, "target 95%", color=t["ink2"], fontsize=8.5, ha="center")
@@ -160,12 +162,14 @@ def rolling_story(res, t, theme):
 
 def year_heatmap(metrics, t, theme):
     vm = metrics["vol"]
-    order = ["gaussian", "split_absolute", "split_normalized", "cqr", "rolling", "aci"]
+    order = ["gaussian", "split_absolute", "split_normalized", "cqr", "rolling", "mondrian",
+             "dtaci", "aci"]  # fmt: skip
+    order = [m for m in order if m in vm]
     years = sorted({int(y) for v in vm.values() for y in v["by_year"]})
     data = np.array([[vm[m]["by_year"].get(y, vm[m]["by_year"].get(str(y))) for y in years]
                      for m in order])  # fmt: skip
     cmap = LinearSegmentedColormap.from_list("div", [t["neg"], t["mid"], t["series"][0]])
-    fig, ax = plt.subplots(figsize=(8.6, 3.4))
+    fig, ax = plt.subplots(figsize=(8.6, 0.45 * len(order) + 0.9))
     dev = data - 0.95
     ax.imshow(dev, cmap=cmap, vmin=-0.08, vmax=0.08, aspect="auto")
     for i in range(len(order)):
@@ -197,16 +201,21 @@ def year_heatmap(metrics, t, theme):
 def var_chart(metrics, t, theme):
     """99% VaR breach rate per method vs the 1% target, with test outcomes."""
     mv = metrics["var"]["0.01"]
-    order = ["hist_var", "gaussian_var", "garch_var", "split_var", "rolling_var", "aci_var"]
+    order = ["hist_var", "gaussian_var", "garch_var", "gjr_var", "fhs_var", "split_var",
+             "rolling_var", "dtaci_var", "aci_var"]  # fmt: skip
+    order = [m for m in order if m in mv]
     names = {"hist_var": "Historical simulation", "gaussian_var": "Gaussian EWMA (RiskMetrics)",
-             "garch_var": "GARCH(1,1)-t", "split_var": "Split conformal",
-             "rolling_var": "Rolling conformal", "aci_var": "ACI"}  # fmt: skip
-    fig, ax = plt.subplots(figsize=(8.6, 3.9))
+             "garch_var": "GARCH(1,1)-t", "gjr_var": "GJR-GARCH-t",
+             "fhs_var": "Filtered historical sim. (FHS)", "split_var": "Split conformal",
+             "rolling_var": "Rolling conformal", "dtaci_var": "DtACI",
+             "aci_var": "ACI"}  # fmt: skip
+    conformal_set = ("split_var", "rolling_var", "aci_var", "dtaci_var")
+    fig, ax = plt.subplots(figsize=(8.6, 0.42 * len(order) + 1.4))
     ax.axvline(0.01, color=t["muted"], linestyle=(0, (4, 3)), lw=1)
     ax.text(0.0103, -0.75, "target 1%", color=t["ink2"], fontsize=8.5, ha="left")
     for i, m in enumerate(order):
         v = mv[m]
-        conformal = m in ("split_var", "rolling_var", "aci_var")
+        conformal = m in conformal_set
         c = t["series"][0] if conformal else t["muted"]
         ax.plot([0.01, v["breach_rate"]], [i, i], color=t["grid"], lw=2)
         ax.scatter(v["breach_rate"], i, s=60, color=c, zorder=3)
@@ -218,7 +227,7 @@ def var_chart(metrics, t, theme):
                 fontsize=8.8, color=t["good"] if c_ok else t["bad"])  # fmt: skip
     ax.set_yticks(range(len(order)), [names[m] for m in order])
     for lbl, m in zip(ax.get_yticklabels(), order, strict=True):
-        lbl.set_color(t["ink"] if m in ("split_var", "rolling_var", "aci_var") else t["ink2"])
+        lbl.set_color(t["ink"] if m in conformal_set else t["ink2"])
     ax.set_xlim(0.004, 0.038)
     ax.xaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1, decimals=1))
     ax.set_xticks([0.005, 0.01, 0.015, 0.02])

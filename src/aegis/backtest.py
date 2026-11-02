@@ -17,7 +17,7 @@ from __future__ import annotations
 import datetime as dt
 import json
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import numpy as np
@@ -25,6 +25,7 @@ import pandas as pd
 
 from aegis import __version__
 from aegis.baselines import (
+    fhs,
     garch_es,
     garch_var,
     gaussian_interval,
@@ -34,11 +35,14 @@ from aegis.baselines import (
 )
 from aegis.config import AegisConfig
 from aegis.conformal_ncm import (
+    DTACI_GAMMAS,
     AdaptiveConformal,
+    DtACI,
     LowerTailResidual,
     RollingConformal,
     SplitConformal,
     build_method,
+    regime_groups,
     run_online,
 )
 from aegis.data import Dataset, load_dataset
@@ -67,7 +71,7 @@ from aegis.slm_parser import build_parser, parse_items
 
 log = logging.getLogger(__name__)
 
-VAR_METHODS = ("split_var", "rolling_var", "aci_var")
+VAR_METHODS = ("split_var", "rolling_var", "aci_var", "dtaci_var")
 OVERLAY_EXTRA = ("vol_premium", "intensity")  # signal columns the overlay uses besides |shock|
 
 
@@ -120,8 +124,9 @@ class BacktestResult:
     contrib: pd.DataFrame | None = None  # per-asset share of portfolio risk
 
     strategies: pd.DataFrame | None = None  # <name>_exp / _gross / _net / _turnover per day
+    vol_cal: pd.DataFrame | None = None  # calibration period: y, mu, lo, hi, group
 
-    _EXTRA = ("es", "var_long", "basel", "contrib", "strategies")
+    _EXTRA = ("es", "var_long", "basel", "contrib", "strategies", "vol_cal")
 
     def save(self, out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -166,6 +171,9 @@ def _var_method(name: str, alpha: float, cfg: AegisConfig, overlap: int = 1):
         "rolling_var": lambda: RollingConformal(ncm, alpha, window=c.rolling_window),
         "aci_var": lambda: AdaptiveConformal(
             ncm, alpha, gamma=c.aci_gamma / overlap, alpha_floor=floor
+        ),
+        "dtaci_var": lambda: DtACI(
+            ncm, alpha, gammas=tuple(g / overlap for g in DTACI_GAMMAS), alpha_floor=floor
         ),
     }[name]()
 
@@ -244,6 +252,10 @@ def run_backtest(
         model = VolForecaster(cfg.risk.point_model, alpha, h, seed=cfg.seed)
         model.fit(X.loc[sp.train], y.loc[sp.train])
     f_cal, f_test = model.predict(X.loc[sp.cal]), model.predict(X.loc[sp.test])
+    # Regime labels for Mondrian conformal: terciles of forecast vol, thresholds from calibration.
+    thresholds = np.quantile(X.loc[sp.cal, "log_ewma_vol"], [1 / 3, 2 / 3])
+    f_cal = replace(f_cal, group=regime_groups(X.loc[sp.cal, "log_ewma_vol"], thresholds))
+    f_test = replace(f_test, group=regime_groups(X.loc[sp.test, "log_ewma_vol"], thresholds))
     y_cal, y_test = y.loc[sp.cal].to_numpy(), y.loc[sp.test].to_numpy()
 
     vol = pd.DataFrame(
@@ -255,7 +267,7 @@ def run_backtest(
     alpha_paths = pd.DataFrame(index=sp.test)
 
     c = cfg.conformal
-    method = None
+    fitted: dict[str, object] = {}
     for name in c.methods:
         if name == "one_sided_var":
             continue  # handled in target B
@@ -269,12 +281,14 @@ def run_backtest(
         vol[f"{name}_lo"], vol[f"{name}_hi"] = res.lo, res.hi
         if res.alpha_path is not None:
             alpha_paths[f"{name}_vol"] = res.alpha_path
+        fitted[name] = method
 
-    # Per-day scoring latency: one model prediction plus one conformal interval, using the last
-    # calibrated method (online methods are the slowest: their quantile is recomputed each day).
-    if method is not None:
-        X_test, last = X.loc[sp.test], method
-        time_calls(lambda i: last.predict(model.predict(X_test.iloc[i : i + 1])),
+    # Per-day scoring latency: one model prediction plus one conformal interval. ACI is timed
+    # when present (online methods recompute their quantile every day, so they are the slowest).
+    bench = fitted.get("aci") or next((m_ for n_, m_ in fitted.items() if n_ != "mondrian"), None)
+    if bench is not None:
+        X_test = X.loc[sp.test]
+        time_calls(lambda i: bench.predict(model.predict(X_test.iloc[i : i + 1])),
                    min(200, len(X_test)), timer, "score_one_day")  # fmt: skip
 
     # ---- Target B: VaR -------------------------------------------------------------------
@@ -297,6 +311,8 @@ def run_backtest(
                 df["gaussian_var"] = gaussian_var(sigma, a).loc[sp.test]
                 df["hist_var"] = historical_var(m.portfolio, a).reindex(sp.test)
                 df["garch_var"] = garch_var(m.portfolio, a, sp.train[-1]).reindex(sp.test)
+                df["gjr_var"] = garch_var(m.portfolio, a, sp.train[-1], o=1).reindex(sp.test)
+                df["fhs_var"] = fhs(m.portfolio, a, sp.train[-1])["var"].reindex(sp.test)
             var[a] = df
 
     es_df = var_long = basel = None
@@ -364,10 +380,14 @@ def run_backtest(
         basel=basel,
         contrib=contrib,
         strategies=strategies,
+        vol_cal=pd.DataFrame(
+            {"y": y_cal, "mu": f_cal.mu, "lo": f_cal.lo, "hi": f_cal.hi, "group": f_cal.group},
+            index=sp.cal,
+        ),
     )
 
 
-RISK_METHODS = ("split", "rolling", "aci", "gaussian", "hist", "garch")
+RISK_METHODS = ("split", "rolling", "aci", "dtaci", "gaussian", "hist", "garch", "gjr", "fhs")
 
 
 def _expected_shortfall(cfg, m, X, r_next, sigma, sp, f_ret_cal, f_ret_test) -> pd.DataFrame:
@@ -393,6 +413,10 @@ def _expected_shortfall(cfg, m, X, r_next, sigma, sp, f_ret_cal, f_ret_test) -> 
     out["hist_es"] = historical_es(m.portfolio, a).reindex(sp.test)
     out["garch_var"] = garch_var(m.portfolio, a, sp.train[-1]).reindex(sp.test)
     out["garch_es"] = garch_es(m.portfolio, a, sp.train[-1]).reindex(sp.test)
+    out["gjr_var"] = garch_var(m.portfolio, a, sp.train[-1], o=1).reindex(sp.test)
+    out["gjr_es"] = garch_es(m.portfolio, a, sp.train[-1], o=1).reindex(sp.test)
+    f = fhs(m.portfolio, a, sp.train[-1]).reindex(sp.test)
+    out["fhs_var"], out["fhs_es"] = f["var"], f["es"]
     return out
 
 
@@ -421,15 +445,18 @@ def _long_horizon_var(cfg, m, X, Y, sp) -> pd.DataFrame:
     out["gaussian"] = gaussian_var(np.exp(X["log_ewma_vol"]) * scale, a).loc[test]
     out["hist"] = historical_var_horizon(m.portfolio, a, h).reindex(test)
     out["garch"] = garch_var(m.portfolio, a, sp.train[-1], horizon=h).reindex(test)
+    out["gjr"] = garch_var(m.portfolio, a, sp.train[-1], horizon=h, o=1).reindex(test)
+    out["fhs"] = fhs(m.portfolio, a, sp.train[-1], horizon=h)["var"].reindex(test)
     return out
 
 
 def _basel(var99: pd.DataFrame, var_long: pd.DataFrame, window: int) -> pd.DataFrame:
     """Traffic light from 1-day 99% VaR exceptions; capital from the long-horizon VaR."""
-    names = {"split": "split_var", "rolling": "rolling_var", "aci": "aci_var",
-             "gaussian": "gaussian_var", "hist": "hist_var", "garch": "garch_var"}  # fmt: skip
     out = pd.DataFrame(index=var99.index)
-    for key, col in names.items():
+    for key in RISK_METHODS:
+        col = f"{key}_var"
+        if col not in var99 or key not in var_long:
+            continue
         breach = (var99["r_next"] < var99[col]).where(var99[col].notna())
         tl = traffic_light(breach.fillna(False), window)
         out[f"{key}_exceptions"] = tl["exceptions"]

@@ -204,6 +204,19 @@ def _cmd_bench(cfg: AegisConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_sensitivity(cfg: AegisConfig, args: argparse.Namespace) -> int:
+    from aegis.sensitivity import run_sensitivity
+
+    out = _out_dir(cfg)
+    if not (out / "run_info.json").exists():
+        console.print(f"[red]No saved backtest in {out}; run 'backtest' first.[/red]")
+        return 1
+    with console.status("Running sensitivity grid..."):
+        path = run_sensitivity(cfg, out, with_lambda=not args.quick)
+    console.print(path.read_text())
+    return 0
+
+
 def _cmd_dashboard(cfg: AegisConfig, args: argparse.Namespace) -> int:
     import importlib.util
     import subprocess
@@ -245,6 +258,10 @@ def build_parser() -> argparse.ArgumentParser:
         ("report", "regenerate the report from saved metrics"),
     ]:
         sub.add_parser(name, parents=[common], help=help_text)
+    sens = sub.add_parser(
+        "sensitivity", parents=[common], help="coverage and width across α, γ, window and λ"
+    )
+    sens.add_argument("--quick", action="store_true", help="skip the EWMA λ re-runs")
     return parser
 
 
@@ -267,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
         "demo": _cmd_demo,
         "bench": _cmd_bench,
         "dashboard": _cmd_dashboard,
+        "sensitivity": _cmd_sensitivity,
     }
     handler = handlers[args.command]
     return handler(cfg, args)

@@ -31,6 +31,6 @@ risk:
 
 conformal:
   alpha: 0.05
-  methods: [split_absolute, split_normalized, cqr, rolling, aci, one_sided_var]
+  methods: [split_absolute, split_normalized, cqr, rolling, aci, dtaci, mondrian, one_sided_var]
   rolling_window: 500
   aci_gamma: 0.005

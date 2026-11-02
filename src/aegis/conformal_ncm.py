@@ -69,6 +69,7 @@ class Forecast:
     sigma: np.ndarray | None = None
     lo: np.ndarray | None = None  # lower quantile forecast (CQR)
     hi: np.ndarray | None = None  # upper quantile forecast (CQR)
+    group: np.ndarray | None = None  # regime label per point (Mondrian conformal)
 
     def __post_init__(self) -> None:
         lengths = set()
@@ -333,6 +334,142 @@ class AdaptiveConformal(ConformalMethod):
         return np.fromiter(self._buf, float)
 
 
+DTACI_GAMMAS = (0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064, 0.128)
+
+
+class DtACI(ConformalMethod):
+    """Dynamically-tuned ACI (Gibbs & Candès, 2022): ACI without hand-picking γ.
+
+    K ACI "experts" run in parallel, one per step size γ_k, each with its own level α_t^k. After
+    each outcome the realized level β_t (the largest level whose set would still have covered
+    y_t, ≈ share of calibration scores ≥ the new score) scores every expert with the pinball
+    loss  ℓ(β, θ) = α(β − θ) − min(0, β − θ). Expert weights follow exponential weights with
+    fixed-share mixing, and the working level is the weighted average α_t = Σ_k p_k α_t^k:
+
+        p_k ← (1 − σ)·p_k e^{−η ℓ_k} / W + σ/K,    η = √(3/I) · √((log(KI) + 2) / ((1−α)² α³))
+
+    with I the interval over which it should track a changing distribution and σ = 1/(2I).
+    ``alpha_floor`` works as in :class:`AdaptiveConformal`.
+
+    With delayed feedback (h-day targets), each expert is scored on the level it *issued* the
+    forecast with, not its current level. Scoring on current levels under-covered with
+    overlapping 5-day targets (93.5% at α = 5% in simulation, vs 94.6% with issued levels).
+    ``stride`` > 1 updates experts on every stride-th outcome only; it did not help in testing
+    and defaults to 1.
+    """
+
+    def __init__(
+        self,
+        ncm: NonConformity,
+        alpha: float,
+        gammas: tuple[float, ...] = DTACI_GAMMAS,
+        interval: int = 500,
+        window: int | None = None,
+        alpha_floor: float | None = None,
+        stride: int = 1,
+    ) -> None:
+        super().__init__(ncm, alpha)
+        if stride < 1:
+            raise ValueError("stride must be >= 1")
+        self.stride = stride
+        self.gammas = np.asarray(gammas, dtype=float)
+        k, i = len(self.gammas), interval
+        self.eta = np.sqrt(3 / i) * np.sqrt((np.log(k * i) + 2) / ((1 - alpha) ** 2 * alpha**3))
+        self.share = 1 / (2 * i)
+        self.window, self.alpha_floor = window, alpha_floor
+
+    def fit(self, f_cal, y_cal):
+        self._buf: deque[float] = deque(self._scores(f_cal, y_cal), maxlen=self.window)
+        self.experts = np.full(len(self.gammas), self.alpha)
+        self.weights = np.full(len(self.gammas), 1 / len(self.gammas))
+        self._seen = 0
+        self._issued: deque[np.ndarray] = deque()  # expert levels at each prediction
+        return self
+
+    def predict(self, f):
+        # Remember the expert levels in force when this forecast is issued: with delayed
+        # feedback, each expert must be scored on the level it actually used, not its current one.
+        for _ in range(len(f)):
+            self._issued.append(self.experts.copy())
+        return super().predict(f)
+
+    @property
+    def alpha_t(self) -> float:
+        return float(self.weights @ self.experts)
+
+    @property
+    def scores(self):
+        return np.fromiter(self._buf, float)
+
+    @property
+    def q(self):
+        scores = self.scores
+        level = self.alpha_t
+        if self.alpha_floor is not None:
+            level = max(level, self.alpha_floor, 1.0 / (len(scores) + 1))
+        return conformal_quantile(scores, level)
+
+    def update(self, f, y, covered):
+        for s_new in self._scores(f, y):
+            self._seen += 1
+            if (self._seen - 1) % self.stride:
+                if self._issued:
+                    self._issued.popleft()
+                self._buf.append(s_new)
+                continue
+            used = self._issued.popleft() if self._issued else self.experts
+            buf = self.scores
+            beta = np.sum(buf >= s_new) / (len(buf) + 1)
+            diff = beta - used
+            loss = self.alpha * diff - np.minimum(0.0, diff)
+            w = self.weights * np.exp(-self.eta * (loss - loss.min()))  # shift for stability
+            w = w / w.sum()
+            self.weights = (1 - self.share) * w + self.share / len(w)
+            miss = (used > beta).astype(float)
+            self.experts = self.experts + self.gammas * (self.alpha - miss)
+            self._buf.append(s_new)
+
+
+class MondrianConformal(ConformalMethod):
+    """Split conformal with one threshold per regime (a Mondrian conformal predictor).
+
+    Calibration scores are split by ``Forecast.group`` (e.g. tercile of forecast volatility) and
+    each group gets its own q̂_g. Under exchangeability *within* each group this gives coverage
+    1 − α conditional on the group, not just on average: the fix for intervals that over-cover
+    calm days and under-cover volatile ones.
+    """
+
+    def fit(self, f_cal, y_cal):
+        if f_cal.group is None:
+            raise ValueError("Mondrian conformal needs Forecast.group")
+        s = self._scores(f_cal, y_cal)
+        self._s = s
+        self._qg = {g: conformal_quantile(s[f_cal.group == g], self.alpha)
+                    for g in np.unique(f_cal.group)}  # fmt: skip
+        self._q_all = conformal_quantile(s, self.alpha)
+        return self
+
+    @property
+    def q(self):
+        return self._q_all  # pooled threshold (used only by tail_mean)
+
+    @property
+    def scores(self):
+        return self._s
+
+    def predict(self, f):
+        self.ncm.check(f)
+        if f.group is None:
+            raise ValueError("Mondrian conformal needs Forecast.group")
+        q = np.array([self._qg.get(g, self._q_all) for g in f.group])
+        return self.ncm.interval(f, q)
+
+
+def regime_groups(values: np.ndarray, thresholds: np.ndarray) -> np.ndarray:
+    """Group label 0..len(thresholds) for each value (e.g. terciles from calibration data)."""
+    return np.digitize(np.asarray(values, float), thresholds).astype(float)
+
+
 # --------------------------------------------------------------------------------------------
 # Walk-forward evaluation
 # --------------------------------------------------------------------------------------------
@@ -366,7 +503,7 @@ def run_online(
     if len(f) != n:
         raise ValueError("forecast and outcome lengths differ")
     lo, hi = np.empty(n), np.empty(n)
-    track_alpha = isinstance(method, AdaptiveConformal)
+    track_alpha = hasattr(method, "alpha_t") and isinstance(method, AdaptiveConformal | DtACI)
     alpha_path = np.empty(n) if track_alpha else None
     tail = np.empty(n) if record_tail else None
 
@@ -420,4 +557,9 @@ def build_method(
         case "aci":
             floor = alpha * aci_floor_ratio if aci_floor_ratio else None
             return AdaptiveConformal(_NCMS[base_ncm](), alpha, gamma=aci_gamma, alpha_floor=floor)
+        case "dtaci":
+            floor = alpha * aci_floor_ratio if aci_floor_ratio else None
+            return DtACI(_NCMS[base_ncm](), alpha, alpha_floor=floor)
+        case "mondrian":
+            return MondrianConformal(_NCMS[base_ncm](), alpha)
     raise ValueError(f"unknown conformal method {name!r}")

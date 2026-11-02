@@ -6,7 +6,7 @@ Three goals:
 2. **Publish a live, guided site.** A public page that takes a reader with no background from "why does this matter?" to the full results, and updates itself every night. No localhost.
 3. **Replace the generic UI.** A distinctive editorial design with a clear narrative flow. Simple on the surface, full detail one click deeper.
 
-Status: **V1 and V2 done.** V1: ES 97.5% with the Acerbi–Székely backtest, 10-day 99% VaR, Basel traffic light and capital, Euler risk decomposition. V2: vol targeting (EWMA / point / conformal upper bound, scales fitted on the calibration period), VaR-limit sizing, equal-weight / inverse-vol / risk-parity allocations, costs and performance metrics. Next: V4 data export and pipeline (V3 methods can follow the site). Estimates assume focused working days.
+Status: **V1, V2 and V3 done.** V3: FHS and GJR-GARCH baselines, DtACI (with issued-level scoring for delayed feedback), Mondrian conformal by volatility regime, and a sensitivity grid over α, γ, window and λ. V1: ES 97.5% with the Acerbi–Székely backtest, 10-day 99% VaR, Basel traffic light and capital, Euler risk decomposition. V2: vol targeting (EWMA / point / conformal upper bound, scales fitted on the calibration period), VaR-limit sizing, equal-weight / inverse-vol / risk-parity allocations, costs and performance metrics. Next: V4 data export and pipeline. Estimates assume focused working days.
 
 ---
 
@@ -183,7 +183,7 @@ Navigation: a slim chapter progress rail (sticky on desktop, a top bar on mobile
 |---|---|---|---|
 | V1 | **Quant core** ✅ | ES 97.5% plus its backtest, 10-day horizon, Basel traffic light, component VaR. Also found and fixed unbounded ACI VaR at extreme quantiles (α floor, γ/h for overlapping targets) and a metrics bias that dropped infinite VaR days. | 2 d |
 | V2 | **Portfolio application** ✅ | Vol-targeting and VaR-limit backtests, risk parity, transaction costs, metrics. Result: vol targeting halves drawdown; conformal sizing adds a small edge; conformal VaR limits are breached 0.82% of days vs 1.81% with Gaussian VaR; risk parity did not help. | 2 d |
-| V3 | **Methods** | FHS and GJR-GARCH baselines, DtACI, Mondrian conformal, sensitivity grid | 1.5 d |
+| V3 | **Methods** ✅ | FHS and GJR-GARCH baselines, DtACI, Mondrian conformal, sensitivity grid. FHS matches conformal calibration with less capital; DtACI gives the most even regime coverage; Mondrian fixes high-vol coverage but its cut-offs drift; ACI hits target at every α and across a 50× range of γ. | 1.5 d |
 | V4 | **Data export and pipeline** | `aegis export-site`, JSON schema, nightly Actions workflow, fallback to last good data | 1 d |
 | V5 | **Design system** | Tokens, type, layout, chart theme, component library, design critique pass | 1.5 d |
 | V6 | **Story chapters 0–5** | Hero to ACI, including both conformal playgrounds | 2.5 d |

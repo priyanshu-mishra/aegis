@@ -36,9 +36,14 @@ LABELS = {
     "cqr": "CQR",
     "rolling": "Rolling conformal",
     "aci": "Adaptive conformal (ACI)",
+    "dtaci": "Dynamically-tuned ACI (DtACI)",
+    "mondrian": "Mondrian conformal (by vol regime)",
     "split_var": "Split conformal VaR",
     "rolling_var": "Rolling conformal VaR",
     "aci_var": "ACI VaR",
+    "dtaci_var": "DtACI VaR",
+    "gjr_var": "GJR-GARCH-t",
+    "fhs_var": "Filtered historical simulation",
     "gaussian_var": "Gaussian EWMA (RiskMetrics)",
     "hist_var": "Historical simulation (250d)",
     "garch_var": "GARCH(1,1)-t",
@@ -109,7 +114,8 @@ def var_metrics(df: pd.DataFrame, alpha: float) -> dict:
 RISK_LABELS = {
     "split": "Split conformal", "rolling": "Rolling conformal", "aci": "ACI",
     "gaussian": "Gaussian EWMA (RiskMetrics)", "hist": "Historical simulation (250d)",
-    "garch": "GARCH(1,1)-t",
+    "garch": "GARCH(1,1)-t", "dtaci": "DtACI", "gjr": "GJR-GARCH-t",
+    "fhs": "Filtered historical simulation",
 }  # fmt: skip
 
 
@@ -522,7 +528,8 @@ def render_markdown(res: BacktestResult, metrics: dict, figures: dict[str, str])
         a = float(a)
         lines += ["", f"### {(1 - a) * 100:g}% VaR (target breach rate {a:.0%})", ""]
         rows = []
-        order = [m for m in (*VAR_METHODS, "gaussian_var", "hist_var", "garch_var") if m in mv]
+        order = [m for m in (*VAR_METHODS, "gaussian_var", "hist_var", "garch_var", "gjr_var",
+                             "fhs_var") if m in mv]  # fmt: skip
         for m in order:
             v = mv[m]
             rows.append([LABELS.get(m, m), _pct(v["breach_rate"], 2), _p(v["kupiec_p"]),
