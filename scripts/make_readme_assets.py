@@ -333,6 +333,33 @@ def intervals_2020(res, t, theme):
     save(fig, "intervals_2020", theme)
 
 
+def basel_chart(res, t, theme):
+    """Rolling 250-day 99% VaR exceptions with Basel zones, for three methods."""
+    if res.basel is None:
+        return
+    b = res.basel.dropna(subset=["aci_exceptions"])
+    fig, ax = plt.subplots(figsize=(9.6, 3.6))
+    zone_colors = {"green": "#0ca30c", "yellow": "#fab219", "red": t["bad"]}
+    for lo, hi, z in ((-0.5, 4.5, "green"), (4.5, 9.5, "yellow"), (9.5, 13.5, "red")):
+        ax.axhspan(lo, hi, color=zone_colors[z], alpha=0.10 if theme == "light" else 0.16, lw=0)
+        ax.text(b.index[-1], (lo + hi) / 2, f"  {z} zone", color=t["ink2"], fontsize=8.5,
+                va="center", ha="left")  # fmt: skip
+    for m, color, lw, name in (("hist", t["muted"], 1.2, "Historical simulation"),
+                               ("gaussian", t["series"][1], 1.4, "Gaussian (RiskMetrics)"),
+                               ("aci", t["series"][0], 2.0, "ACI (conformal)")):  # fmt: skip
+        ax.plot(b.index, b[f"{m}_exceptions"], color=color, lw=lw, label=name)
+    ax.set_ylim(-0.5, 13.5)
+    ax.set_xlim(b.index[0], b.index[-1])
+    leg = ax.legend(loc="upper center", frameon=False, ncol=3, fontsize=9,
+                    bbox_to_anchor=(0.5, -0.08))  # fmt: skip
+    for txt in leg.get_texts():
+        txt.set_color(t["ink2"])
+    style(ax, t, "Basel traffic light: 99% VaR exceptions over the last 250 days",
+          "More than 4 exceptions puts a bank's model in the yellow zone and raises its capital "
+          "multiplier.", ylabel="exceptions")  # fmt: skip
+    save(fig, "basel", theme)
+
+
 def main():
     res = BacktestResult.load(REPORTS / "default")
     metrics = compute_metrics(res)
@@ -344,6 +371,7 @@ def main():
         ablation_chart(t, theme)
         slm_chart(t, theme)
         intervals_2020(res, t, theme)
+        basel_chart(res, t, theme)
     print(f"wrote {len(list(OUT.glob('*.svg')))} files to {OUT}")
 
 

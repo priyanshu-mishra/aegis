@@ -13,7 +13,7 @@ import numpy as np
 import pandas as pd
 from tabulate import tabulate
 
-from aegis.backtest import VAR_METHODS, BacktestResult
+from aegis.backtest import RISK_METHODS, VAR_METHODS, BacktestResult
 from aegis.metrics import (
     christoffersen_conditional,
     christoffersen_independence,
@@ -24,6 +24,7 @@ from aegis.metrics import (
     rolling_coverage,
     widths,
 )
+from aegis.risk_measures import acerbi_szekely_z2, basel_zone
 
 ROLL = 63  # ~one quarter of trading days
 
@@ -83,31 +84,108 @@ def vol_metrics(vol: pd.DataFrame, methods: list[str], alpha: float) -> dict:
 
 
 def var_metrics(df: pd.DataFrame, alpha: float) -> dict:
+    """Breach statistics per VaR method. An infinite VaR (level −∞) is a valid, if useless,
+    forecast that is never breached: it counts toward the breach rate and is reported in
+    ``infinite_days`` rather than being dropped."""
     out = {}
     r = df["r_next"].to_numpy()
     for m in [c for c in df.columns if c != "r_next"]:
         lvl = df[m].to_numpy()
-        ok = np.isfinite(lvl)
+        ok = ~np.isnan(lvl)
         b = r[ok] < lvl[ok]
+        finite = np.isfinite(lvl[ok])
         out[m] = {
             "days": int(ok.sum()),
+            "infinite_days": int((~finite).sum()),
             "breach_rate": float(b.mean()),
             "kupiec_p": kupiec_pof(b, alpha).p_value,
             "christoffersen_p": christoffersen_independence(b).p_value,
             "conditional_p": christoffersen_conditional(b, alpha).p_value,
-            "mean_var": float(-lvl[ok].mean()),
+            "mean_var": float(-lvl[ok][finite].mean()),
         }
+    return out
+
+
+RISK_LABELS = {
+    "split": "Split conformal", "rolling": "Rolling conformal", "aci": "ACI",
+    "gaussian": "Gaussian EWMA (RiskMetrics)", "hist": "Historical simulation (250d)",
+    "garch": "GARCH(1,1)-t",
+}  # fmt: skip
+
+
+def es_metrics(df: pd.DataFrame, alpha: float) -> dict:
+    """Breach rate at the ES tail, mean ES, and the Acerbi–Székely Z2 statistic per method."""
+    out = {}
+    r = df["r_next"].to_numpy()
+    for m in RISK_METHODS:
+        if f"{m}_es" not in df:
+            continue
+        v, e = df[f"{m}_var"].to_numpy(), df[f"{m}_es"].to_numpy()
+        ok = np.isfinite(v) & np.isfinite(e)
+        z = acerbi_szekely_z2(r[ok], v[ok], e[ok], alpha)
+        out[m] = {"breach_rate": float(np.mean(r[ok] < v[ok])), "mean_es": float(-e[ok].mean()),
+                  "z2": z.z2, "zone": z.zone, "days": int(ok.sum())}  # fmt: skip
+    return out
+
+
+def long_var_metrics(df: pd.DataFrame, alpha: float, horizon: int) -> dict:
+    """Long-horizon VaR. Overlapping h-day windows make consecutive breaches dependent, so the
+    Kupiec and Christoffersen tests use every h-th day only (non-overlapping windows)."""
+    out = {}
+    r = df["r_fwd_long"].to_numpy()
+    for m in RISK_METHODS:
+        if m not in df:
+            continue
+        lvl = df[m].to_numpy()
+        ok = ~np.isnan(lvl)
+        b_all = r[ok] < lvl[ok]
+        b = b_all[::horizon]
+        out[m] = {"breach_rate": float(b_all.mean()), "breach_rate_nonoverlap": float(b.mean()),
+                  "n_nonoverlap": len(b), "kupiec_p": kupiec_pof(b, alpha).p_value,
+                  "christoffersen_p": christoffersen_independence(b).p_value,
+                  "infinite_days": int(np.isinf(lvl[ok]).sum()),
+                  "mean_var": float(-lvl[ok][np.isfinite(lvl[ok])].mean())}  # fmt: skip
+    return out
+
+
+def basel_metrics(df: pd.DataFrame) -> dict:
+    out = {}
+    for m in RISK_METHODS:
+        if f"{m}_exceptions" not in df:
+            continue
+        k = df[f"{m}_exceptions"].dropna()
+        zones = k.map(lambda x: basel_zone(int(x)))
+        cap = df[f"{m}_capital"].dropna()
+        out[m] = {
+            "days": len(k),
+            "green": float((zones == "green").mean()), "yellow": float((zones == "yellow").mean()),
+            "red": float((zones == "red").mean()), "max_exceptions": int(k.max()),
+            "final_exceptions": int(k.iloc[-1]), "final_zone": zones.iloc[-1],
+            "mean_multiplier": float(df[f"{m}_multiplier"].dropna().mean()),
+            "mean_capital": float(cap.mean()) if len(cap) else None,
+        }  # fmt: skip
     return out
 
 
 def compute_metrics(res: BacktestResult) -> dict:
     info = res.info
-    return {
+    out = {
         "alpha": info["alpha"],
         "vol": vol_metrics(res.vol, info["vol_methods"], info["alpha"]),
         "var": {str(a): var_metrics(df, a) for a, df in res.var.items()},
         "latency": info["latency"],
     }
+    rm = info.get("risk_measures")
+    if rm and res.es is not None:
+        out["es"] = es_metrics(res.es, rm["es_alpha"])
+        out["var_long"] = long_var_metrics(res.var_long, rm["long_alpha"], rm["long_horizon"])
+    if res.basel is not None:
+        out["basel"] = basel_metrics(res.basel)
+    if res.contrib is not None:
+        c = res.contrib
+        out["contrib"] = {"mean": c.mean().to_dict(), "min": c.min().to_dict(),
+                          "max": c.max().to_dict()}  # fmt: skip
+    return out
 
 
 # --------------------------------------------------------------------------------------------
@@ -247,6 +325,43 @@ def make_figures(res: BacktestResult, metrics: dict, out_dir: Path) -> dict[str,
         files["var"] = "figures/var.png"
         fig.savefig(out_dir / files["var"], dpi=140)
         plt.close(fig)
+    # 6. Basel traffic light: rolling 250-day exceptions for three methods.
+    if res.basel is not None:
+        b = res.basel
+        fig, ax = plt.subplots(figsize=(10, 3.4))
+        x = b.index
+        ax.axhspan(-0.5, 4.5, color="#0ca30c", alpha=0.08, lw=0)
+        ax.axhspan(4.5, 9.5, color="#fab219", alpha=0.12, lw=0)
+        ax.axhspan(9.5, 14, color=CRITICAL, alpha=0.08, lw=0)
+        for y, label in ((2, "green"), (7, "yellow"), (11.5, "red")):
+            ax.text(x[0], y, f" {label}", color=INK_2, fontsize=8, va="center")
+        for i, m in enumerate(("aci", "gaussian", "hist")):
+            ax.plot(x, b[f"{m}_exceptions"], color=SERIES[i], lw=1.6, label=RISK_LABELS[m])
+        ax.set_ylim(-0.5, 14)
+        _style(ax, "Basel traffic light: 99% VaR exceptions in the last 250 days",
+               "exceptions")  # fmt: skip
+        ax.legend(loc="upper right", fontsize=8, frameon=False)
+        fig.tight_layout()
+        files["basel"] = "figures/basel.png"
+        fig.savefig(out_dir / files["basel"], dpi=140)
+        plt.close(fig)
+
+    # 7. Risk decomposition: signed share of portfolio risk by asset. Shares sum to 100% but can
+    # be negative for a hedging asset, so lines (not a stacked area) show them faithfully.
+    if res.contrib is not None:
+        c = res.contrib
+        fig, ax = plt.subplots(figsize=(10, 3.4))
+        ax.axhline(0, color=AXIS, lw=1)
+        for i, col in enumerate(c.columns):
+            ax.plot(c.index, c[col], color=SERIES[i % len(SERIES)], lw=1.4, label=col)
+        ax.yaxis.set_major_formatter(matplotlib.ticker.PercentFormatter(1, decimals=0))
+        _style(ax, "Share of portfolio risk by asset (Euler; sums to 100%, negative = hedge)",
+               "share of risk")  # fmt: skip
+        ax.legend(loc="upper left", fontsize=8, frameon=False, ncol=c.shape[1])
+        fig.tight_layout()
+        files["contrib"] = "figures/risk_contributions.png"
+        fig.savefig(out_dir / files["contrib"], dpi=140)
+        plt.close(fig)
     return files
 
 
@@ -371,6 +486,7 @@ def render_markdown(res: BacktestResult, metrics: dict, figures: dict[str, str])
     if "var" in figures:
         lines += ["", f"![VaR]({figures['var']})"]
 
+    lines += _risk_measures_markdown(res, metrics, figures)
     lines += ["", "## Latency", ""]
     rows = [[k, v["calls"], f"{v['total_s']:.2f}", f"{v['p50_ms']:.2f}", f"{v['p95_ms']:.2f}"]
             for k, v in metrics["latency"].items()]  # fmt: skip
@@ -391,6 +507,61 @@ def render_markdown(res: BacktestResult, metrics: dict, figures: dict[str, str])
         "- Statistical tests at 5% significance will reject a correct model 5% of the time.",
     ]
     return "\n".join(lines) + "\n"
+
+
+def _risk_measures_markdown(res: BacktestResult, metrics: dict, figures: dict) -> list[str]:
+    if "es" not in metrics:
+        return []
+    rm = res.info["risk_measures"]
+    a, h, la = rm["es_alpha"], rm["long_horizon"], rm["long_alpha"]
+    lines = ["", f"## Expected Shortfall ({(1 - a) * 100:g}%)", "",
+             "Basel III / FRTB measures market risk with ES at 97.5%: the average loss on the "
+             f"worst {a:.1%} of days. The Acerbi–Székely Z2 statistic is 0 when ES is right and "
+             "negative when realized tail losses exceed it (green ≥ −0.70 > yellow ≥ −1.80 > red). "
+             "Conformal ES is the mean calibration score beyond the VaR quantile: an empirical "
+             "estimate without the coverage guarantee of the VaR bound.", ""]  # fmt: skip
+    rows = [[RISK_LABELS[m], _pct(v["breach_rate"], 2), _pct(v["mean_es"], 2), f"{v['z2']:+.2f}",
+             v["zone"]] for m, v in metrics["es"].items()]  # fmt: skip
+    lines.append(tabulate(rows, headers=["Method", f"Breaches (target {a:.1%})", "Avg ES",
+                                         "Z2", "Zone"], tablefmt="pipe",
+                          disable_numparse=True))  # fmt: skip
+
+    lines += ["", f"## {h}-day {(1 - la) * 100:g}% VaR (regulatory horizon)", "",
+              f"Overlapping {h}-day windows make consecutive breaches dependent, so the tests use "
+              f"every {h}th day only.", ""]  # fmt: skip
+    rows = [[RISK_LABELS[m], _pct(v["breach_rate"], 2), _pct(v["breach_rate_nonoverlap"], 2),
+             v["n_nonoverlap"], _p(v["kupiec_p"]), _p(v["christoffersen_p"]),
+             _pct(v["mean_var"], 2)] for m, v in metrics["var_long"].items()]  # fmt: skip
+    lines.append(tabulate(rows, headers=["Method", "Breaches", "Breaches (non-overlap)", "n",
+                                         "Kupiec p", "Christoffersen p", "Avg VaR"],
+                          tablefmt="pipe", disable_numparse=True))  # fmt: skip
+
+    if "basel" in metrics:
+        lines += ["", "## Basel traffic light and capital", "",
+                  "Exceptions of the 1-day 99% VaR in the last 250 days set the zone and the "
+                  "capital multiplier (3.0 in green, up to 4.0 in red). Capital = max(VaR₁₀, "
+                  "multiplier × 60-day average VaR₁₀), as a fraction of portfolio value.",
+                  ""]  # fmt: skip
+        rows = [[RISK_LABELS[m], _pct(v["green"]), _pct(v["yellow"]), _pct(v["red"]),
+                 v["max_exceptions"], f"{v['mean_multiplier']:.2f}",
+                 _pct(v["mean_capital"], 1)] for m, v in metrics["basel"].items()]  # fmt: skip
+        lines.append(tabulate(rows, headers=["Method", "Days green", "Days yellow", "Days red",
+                                             "Max exceptions", "Avg multiplier", "Avg capital"],
+                              tablefmt="pipe", disable_numparse=True))  # fmt: skip
+        if "basel" in figures:
+            lines += ["", f"![Basel traffic light]({figures['basel']})"]
+
+    if "contrib" in metrics:
+        c = metrics["contrib"]
+        lines += ["", "## Risk decomposition", "",
+                  "Euler allocation of portfolio volatility from the engine covariance; the same "
+                  "shares decompose VaR and ES for scale-family models.", ""]  # fmt: skip
+        rows = [[k, _pct(c["mean"][k]), _pct(c["min"][k]), _pct(c["max"][k])] for k in c["mean"]]
+        lines.append(tabulate(rows, headers=["Asset", "Average share of risk", "Lowest", "Peak"],
+                              tablefmt="pipe", disable_numparse=True))  # fmt: skip
+        if "contrib" in figures:
+            lines += ["", f"![Risk contributions]({figures['contrib']})"]
+    return lines
 
 
 def write_report(res: BacktestResult, out_dir: Path, figures: bool = True) -> Path:

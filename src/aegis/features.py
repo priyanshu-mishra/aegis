@@ -66,17 +66,23 @@ def build_features(
     return X
 
 
-def build_targets(market: MarketData, horizon: int) -> pd.DataFrame:
+def build_targets(market: MarketData, horizon: int, long_horizon: int = 10) -> pd.DataFrame:
     """Targets (looking forward from t):
 
     * ``log_vol_fwd``: log realised portfolio vol over t+1…t+h, daily scale
       = log sqrt( (1/h) Σ_{i=1}^{h} r²_{p,t+i} )            (target A)
     * ``ret_fwd``: next-day portfolio log return r_{p,t+1}   (target B)
+    * ``ret_fwd_long``: summed log return over t+1 … t+long_horizon (regulatory VaR horizon)
     """
     r = market.portfolio
     mean_sq = (r**2).rolling(horizon).mean().shift(-horizon)
     return pd.DataFrame(
-        {"log_vol_fwd": _log_vol(np.sqrt(mean_sq)), "ret_fwd": r.shift(-1)}, index=r.index
+        {
+            "log_vol_fwd": _log_vol(np.sqrt(mean_sq)),
+            "ret_fwd": r.shift(-1),
+            "ret_fwd_long": r.rolling(long_horizon).sum().shift(-long_horizon),
+        },
+        index=r.index,
     )
 
 

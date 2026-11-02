@@ -110,6 +110,9 @@ class ConformalConfig(_Strict):
     ]
     rolling_window: int = Field(500, gt=20)
     aci_gamma: float = Field(0.005, gt=0)
+    aci_floor_ratio: float | None = Field(
+        0.2, gt=0, le=1, description="ACI quantile level floor as a fraction of α (None: off)"
+    )
     online_base: Literal["absolute", "normalized", "cqr"] = Field(
         "absolute",
         description="Non-conformity score used by the online methods (rolling, aci). Absolute wins "
@@ -118,6 +121,11 @@ class ConformalConfig(_Strict):
     var_alphas: list[float] = Field(
         [0.05, 0.01], description="Tail levels for the VaR backtest (0.05 → 95% VaR)"
     )
+
+    es_alpha: float = Field(0.025, gt=0, lt=0.5, description="Expected Shortfall tail (FRTB: 2.5%)")
+    long_horizon: int = Field(10, ge=2, description="Regulatory VaR horizon in days (Basel: 10)")
+    long_alpha: float = Field(0.01, gt=0, lt=0.5, description="Tail for the long-horizon VaR")
+    basel_window: int = Field(250, ge=50, description="Days per Basel traffic-light window")
 
     @field_validator("var_alphas")
     @classmethod

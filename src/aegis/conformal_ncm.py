@@ -210,18 +210,37 @@ class ConformalMethod(ABC):
     def update(self, f: Forecast, y: np.ndarray, covered: np.ndarray) -> None:  # noqa: B027
         """Feed back realised outcomes. Static split conformal ignores them."""
 
+    @property
+    @abstractmethod
+    def scores(self) -> np.ndarray:
+        """Calibration scores currently in use."""
+
+    def tail_mean(self) -> float:
+        """Mean of the current scores at or beyond q̂: the conformal analogue of Expected
+        Shortfall for a one-sided score (an empirical estimate, not a guaranteed quantity)."""
+        q = self.q
+        if not np.isfinite(q):
+            return q
+        s = self.scores
+        return float(s[s >= q].mean())
+
 
 class SplitConformal(ConformalMethod):
     """Inductive (split) conformal: one fixed q̂ from the calibration set, eq. (1)."""
 
     def fit(self, f_cal, y_cal):
         # S_i = NCM(X_i, y_i) for i ∈ D_cal, then q̂ = ⌈(n+1)(1−α)⌉-th smallest.
-        self._q = conformal_quantile(self._scores(f_cal, y_cal), self.alpha)
+        self._s = self._scores(f_cal, y_cal)
+        self._q = conformal_quantile(self._s, self.alpha)
         return self
 
     @property
     def q(self):
         return self._q
+
+    @property
+    def scores(self):
+        return self._s
 
 
 class RollingConformal(ConformalMethod):
@@ -249,6 +268,10 @@ class RollingConformal(ConformalMethod):
         self._buf.extend(self._scores(f, y))
         self._q_cache = None
 
+    @property
+    def scores(self):
+        return np.fromiter(self._buf, float)
+
 
 class AdaptiveConformal(ConformalMethod):
     """Adaptive Conformal Inference (Gibbs & Candès, 2021).
@@ -263,15 +286,27 @@ class AdaptiveConformal(ConformalMethod):
         | (1/T) Σ err_t − α |  ≤  (max(α_1, 1 − α_1) + γ) / (γ T)                   (4)
 
     No exchangeability is assumed. Larger γ adapts faster but makes the interval width jumpier.
+
+    ``alpha_floor`` (optional) computes the quantile at max(α_t, floor, 1/(n+1)) while α_t
+    itself keeps updating. Without it, a cluster of misses at a small α (e.g. 99% VaR) drives
+    α_t below 0, and the set stays infinite until α_t recovers at γ·α per step, which can take
+    years. The floor keeps the sets finite at the cost of bound (4) during such clusters.
     """
 
     def __init__(
-        self, ncm: NonConformity, alpha: float, gamma: float = 0.005, window: int | None = None
+        self,
+        ncm: NonConformity,
+        alpha: float,
+        gamma: float = 0.005,
+        window: int | None = None,
+        alpha_floor: float | None = None,
     ) -> None:
         super().__init__(ncm, alpha)
         if gamma <= 0:
             raise ValueError("gamma must be > 0")
-        self.gamma, self.window = gamma, window
+        if alpha_floor is not None and not 0 < alpha_floor <= alpha:
+            raise ValueError("alpha_floor must be in (0, alpha]")
+        self.gamma, self.window, self.alpha_floor = gamma, window, alpha_floor
 
     def fit(self, f_cal, y_cal):
         self._buf: deque[float] = deque(self._scores(f_cal, y_cal), maxlen=self.window)
@@ -280,12 +315,22 @@ class AdaptiveConformal(ConformalMethod):
 
     @property
     def q(self):
-        return conformal_quantile(np.fromiter(self._buf, float), self.alpha_t)
+        scores = np.fromiter(self._buf, float)
+        level = self.alpha_t
+        if self.alpha_floor is not None:
+            # At a level below 1/(n+1) even the largest score is not enough (q̂ = ∞), so the
+            # effective floor is at least that: the set is then bounded by the largest score.
+            level = max(level, self.alpha_floor, 1.0 / (len(scores) + 1))
+        return conformal_quantile(scores, level)
 
     def update(self, f, y, covered):
         for c in np.atleast_1d(covered):
             self.alpha_t += self.gamma * (self.alpha - (0.0 if c else 1.0))  # eq. (3)
         self._buf.extend(self._scores(f, y))
+
+    @property
+    def scores(self):
+        return np.fromiter(self._buf, float)
 
 
 # --------------------------------------------------------------------------------------------
@@ -299,10 +344,15 @@ class OnlineResult:
     hi: np.ndarray
     covered: np.ndarray
     alpha_path: np.ndarray | None  # α_t used at each step (ACI only)
+    tail: np.ndarray | None = None  # conformal tail mean at each step (record_tail=True)
 
 
 def run_online(
-    method: ConformalMethod, f: Forecast, y: np.ndarray, feedback_lag: int = 1
+    method: ConformalMethod,
+    f: Forecast,
+    y: np.ndarray,
+    feedback_lag: int = 1,
+    record_tail: bool = False,
 ) -> OnlineResult:
     """Predict one step at a time, revealing outcome y_j only ``feedback_lag`` steps later.
 
@@ -318,6 +368,7 @@ def run_online(
     lo, hi = np.empty(n), np.empty(n)
     track_alpha = isinstance(method, AdaptiveConformal)
     alpha_path = np.empty(n) if track_alpha else None
+    tail = np.empty(n) if record_tail else None
 
     for t in range(n):
         j = t - feedback_lag
@@ -328,8 +379,10 @@ def run_online(
             alpha_path[t] = method.alpha_t
         lo_t, hi_t = method.predict(f[t : t + 1])
         lo[t], hi[t] = lo_t[0], hi_t[0]
+        if record_tail:
+            tail[t] = method.tail_mean()
 
-    return OnlineResult(lo, hi, is_covered(y, lo, hi), alpha_path)
+    return OnlineResult(lo, hi, is_covered(y, lo, hi), alpha_path, tail)
 
 
 _NCMS: dict[str, type[NonConformity]] = {
@@ -347,6 +400,7 @@ def build_method(
     rolling_window: int = 500,
     aci_gamma: float = 0.005,
     base_ncm: str = "absolute",
+    aci_floor_ratio: float | None = None,
 ) -> ConformalMethod:
     """Map a config method name (``ConformalConfig.methods``) to a calibrator.
 
@@ -364,5 +418,6 @@ def build_method(
         case "rolling":
             return RollingConformal(_NCMS[base_ncm](), alpha, window=rolling_window)
         case "aci":
-            return AdaptiveConformal(_NCMS[base_ncm](), alpha, gamma=aci_gamma)
+            floor = alpha * aci_floor_ratio if aci_floor_ratio else None
+            return AdaptiveConformal(_NCMS[base_ncm](), alpha, gamma=aci_gamma, alpha_floor=floor)
     raise ValueError(f"unknown conformal method {name!r}")

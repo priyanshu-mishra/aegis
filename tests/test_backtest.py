@@ -73,6 +73,13 @@ def test_backtest_outputs(result):
         assert {"split_var", "rolling_var", "aci_var", "gaussian_var", "hist_var",
                 "garch_var"} <= set(df.columns)  # fmt: skip
     assert "aci_vol" in result.alpha_paths
+    assert {"split_es", "aci_es", "gaussian_es", "hist_es", "garch_es"} <= set(result.es.columns)
+    es_cols = [c for c in result.es.columns if c.endswith("_es")]
+    var_cols = [c.replace("_es", "_var") for c in es_cols]
+    assert (result.es[es_cols].to_numpy() <= result.es[var_cols].to_numpy() + 1e-12).all()
+    assert {"split", "rolling", "aci", "gaussian", "hist", "garch"} <= set(result.var_long.columns)
+    assert np.isfinite(result.var_long[["split", "rolling", "aci"]].to_numpy()).all()
+    assert result.contrib.sum(axis=1).to_numpy() == pytest.approx(1.0)
     assert info["latency"]["score_one_day"]["calls"] > 0
     assert vol.index[0] > pd.Timestamp("2013-12-31")
 
@@ -99,6 +106,12 @@ def test_backtest_has_no_lookahead():
     for alpha in a.var:
         cols = [c for c in a.var[alpha].columns if c != "r_next"]
         pd.testing.assert_frame_equal(a.var[alpha].loc[:t, cols], b.var[alpha].loc[:t, cols])
+    # Regulatory extensions: ES, long-horizon VaR, Basel counts and capital, risk shares.
+    for name, outcome in (("es", "r_next"), ("var_long", "r_fwd_long"), ("basel", None),
+                          ("contrib", None)):  # fmt: skip
+        fa, fb = getattr(a, name), getattr(b, name)
+        cols = [c for c in fa.columns if c != outcome]
+        pd.testing.assert_frame_equal(fa.loc[:t, cols], fb.loc[:t, cols])
     # Sanity: the perturbation does change later outputs.
     assert not a.vol.loc[a.vol.index > t].equals(b.vol.loc[b.vol.index > t])
 
@@ -107,6 +120,8 @@ def test_save_load_roundtrip(result, tmp_path):
     result.save(tmp_path)
     back = BacktestResult.load(tmp_path)
     pd.testing.assert_frame_equal(back.vol, result.vol, check_freq=False)
+    for name in ("es", "var_long", "basel", "contrib"):
+        pd.testing.assert_frame_equal(getattr(back, name), getattr(result, name), check_freq=False)
     for a in result.var:
         pd.testing.assert_frame_equal(back.var[a], result.var[a], check_freq=False)
     assert back.info["alpha"] == result.info["alpha"]
@@ -118,7 +133,12 @@ def test_report_files_and_tables(result, tmp_path):
     md = path.read_text()
     metrics = json.loads((tmp_path / "metrics.json").read_text())
     assert set(metrics["vol"]) == set(result.info["vol_methods"])
-    for f in ("vol_intervals", "rolling_coverage", "aci_alpha", "coverage_by_tercile", "var"):
+    assert {"es", "var_long", "basel", "contrib"} <= set(metrics)
+    for heading in ("## Expected Shortfall", "-day 99% VaR", "## Basel traffic light",
+                    "## Risk decomposition"):  # fmt: skip
+        assert heading in md
+    for f in ("vol_intervals", "rolling_coverage", "aci_alpha", "coverage_by_tercile", "var",
+              "basel", "risk_contributions"):  # fmt: skip
         assert (tmp_path / "figures" / f"{f}.png").exists()
     # Every markdown table row has the same number of cells as its header.
     for block in re.findall(r"((?:^\|.*\|\n)+)", md, flags=re.M):

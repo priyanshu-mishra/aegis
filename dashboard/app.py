@@ -214,6 +214,71 @@ if view == "VaR":
         st.altair_chart((ret + var_lines).properties(height=360).interactive(bind_y=False),
                         width="stretch")  # fmt: skip
 
+# ---- Risk measures (ES, 10-day VaR, Basel, decomposition) --------------------------------
+if view == "Risk measures":
+    from aegis.report import RISK_LABELS
+
+    if "es" not in metrics:
+        st.info("This run predates the risk-measure extensions; re-run `backtest`.")
+    else:
+        rm = info["risk_measures"]
+        st.markdown(f"**Expected Shortfall {(1 - rm['es_alpha']) * 100:g}%**: Acerbi–Székely Z2 "
+                    "is 0 when ES is right, negative when tail losses exceed it.")  # fmt: skip
+        es_t = pd.DataFrame([{"Method": RISK_LABELS[k], "Breaches": v["breach_rate"],
+                              "Avg ES": v["mean_es"], "Z2": v["z2"], "Zone": v["zone"]}
+                             for k, v in metrics["es"].items()]).set_index("Method")  # fmt: skip
+        st.dataframe(es_t.style.format({"Breaches": "{:.2%}", "Avg ES": "{:.2%}",
+                                        "Z2": "{:+.2f}"}), width="stretch")  # fmt: skip
+        st.markdown(f"**{rm['long_horizon']}-day {(1 - rm['long_alpha']) * 100:g}% VaR** "
+                    "(tests on non-overlapping windows)")  # fmt: skip
+        lv = pd.DataFrame([{"Method": RISK_LABELS[k], "Breaches": v["breach_rate_nonoverlap"],
+                            "Kupiec p": v["kupiec_p"], "Avg VaR": v["mean_var"]}
+                           for k, v in metrics["var_long"].items()])  # fmt: skip
+        lv = lv.set_index("Method")
+        st.dataframe(lv.style.format({"Breaches": "{:.2%}", "Kupiec p": "{:.3f}",
+                                      "Avg VaR": "{:.2%}"}), width="stretch")  # fmt: skip
+        if "basel" in metrics and res.basel is not None:
+            st.markdown("**Basel traffic light**: 99% VaR exceptions in the last 250 days")
+            bt = pd.DataFrame([{"Method": RISK_LABELS[k], "Days green": v["green"],
+                                "Max exceptions": v["max_exceptions"],
+                                "Avg multiplier": v["mean_multiplier"],
+                                "Avg capital": v["mean_capital"]}
+                               for k, v in metrics["basel"].items()])  # fmt: skip
+            bt = bt.set_index("Method")
+            st.dataframe(bt.style.format({"Days green": "{:.0%}", "Avg multiplier": "{:.2f}",
+                                          "Avg capital": "{:.1%}"}), width="stretch")  # fmt: skip
+            pick = ["aci", "gaussian", "hist"]
+            ex = res.basel[[f"{k}_exceptions" for k in pick]].copy()
+            ex.columns = [RISK_LABELS[k] for k in pick]
+            long = ex.reset_index(names="date").melt("date", var_name="method",
+                                                      value_name="exceptions").dropna()  # fmt: skip
+            zones = pd.DataFrame({"lo": [0, 4.5, 9.5], "hi": [4.5, 9.5, 14],
+                                  "zone": ["green", "yellow", "red"]})  # fmt: skip
+            bands = alt.Chart(zones).mark_rect(opacity=0.1).encode(
+                y="lo:Q", y2="hi:Q",
+                color=alt.Color("zone:N", scale=alt.Scale(domain=["green", "yellow", "red"],
+                                range=["#0ca30c", "#fab219", CRITICAL]), legend=None),
+            )  # fmt: skip
+            lines = alt.Chart(long).mark_line(strokeWidth=1.8).encode(
+                x=alt.X("date:T", title=None, axis=DATE_AXIS),
+                y=alt.Y("exceptions:Q", title="exceptions (250d)"),
+                color=alt.Color("method:N", scale=alt.Scale(domain=ex.columns.tolist(),
+                                range=SERIES[:3]), legend=alt.Legend(orient="bottom", title=None)),
+                tooltip=["date:T", "method:N", "exceptions:Q"],
+            )  # fmt: skip
+            st.altair_chart((bands + lines).properties(height=300), width="stretch")
+        if res.contrib is not None:
+            st.markdown("**Share of portfolio risk by asset** (Euler; negative = hedge)")
+            cl = res.contrib.reset_index(names="date").melt("date", var_name="asset",
+                                                            value_name="share")  # fmt: skip
+            st.altair_chart(alt.Chart(cl).mark_line(strokeWidth=1.6).encode(
+                x=alt.X("date:T", title=None, axis=DATE_AXIS),
+                y=alt.Y("share:Q", axis=alt.Axis(format="%"), title=None),
+                color=alt.Color("asset:N", scale=alt.Scale(range=SERIES),
+                                legend=alt.Legend(orient="bottom", title=None)),
+                tooltip=["date:T", "asset:N", alt.Tooltip("share:Q", format=".1%")],
+            ).properties(height=280), width="stretch")  # fmt: skip
+
 # ---- Ablation ----------------------------------------------------------------------------
 if view == "Text ablation":
     path = REPORTS / run / "ablation.json"

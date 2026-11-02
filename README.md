@@ -5,7 +5,7 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 133 offline" src="https://img.shields.io/badge/tests-133%20offline-1baf7a">
+  <img alt="Tests: 152 offline" src="https://img.shields.io/badge/tests-152%20offline-1baf7a">
   <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
 </p>
@@ -15,7 +15,7 @@
 ### Key findings
 
 - **Textbook conformal prediction under-covers on real markets.** Split conformal reaches 93.3% instead of 95%, and 88.9% in 2020, because markets are not exchangeable. **Adaptive Conformal Inference (ACI) recovers 95.0%**, including 94.5% through the COVID year.
-- **Conformal VaR fixes the 99% tail.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–0.99% of days against a 1% target.
+- **Conformal VaR fixes the 99% tail and keeps a bank's model in the green zone.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–0.99% of days against a 1% target and stays in the Basel green zone 94–99% of the time, against 56% for RiskMetrics. The trade-off is honest: being right costs more capital (22–31% vs 18%).
 - **Text did not beat prices on real data, and the ablation shows why.** In a synthetic world with a known signal, text only helps when headlines are close to noise-free. Fixing the SLM's schema took its sign accuracy from 70% to 100%, but about eight FOMC statements a year is too sparse a signal.
 
 ---
@@ -115,12 +115,39 @@ ACI is the only method that hits 95% overall *and* has the best worst quarter (8
 |---|---|---|
 | Split conformal | 5.49% · pass · fail | 0.82% · pass · pass |
 | Rolling conformal | 5.02% · pass · fail | 0.99% · pass · pass |
-| ACI | 4.91% · pass · **pass** | 0.99% · pass · fail |
+| ACI | 4.91% · pass · **pass** | 0.93% · pass · fail |
 | Gaussian EWMA (RiskMetrics) | 4.96% · pass · fail | 1.93% · **fail** · pass |
 | Historical simulation (250 days) | 5.78% · pass · fail | 1.69% · **fail** · fail |
 | GARCH(1,1)-t | 5.72% · pass · fail | 1.40% · pass · fail |
 
 The Kupiec test checks that the breach rate is right; the Christoffersen test checks that breaches don't cluster. At 95% every method gets the rate right and almost all fail on clustering, since breaches arrive in bursts during crises. At 99% the fat tails show: the Gaussian VaR breaches twice as often as it should. No single method passes everything. Rolling conformal is cleanest at 99%, and ACI is the only method without clustered breaches at 95%.
+
+### The regulator's view: Expected Shortfall, 10-day VaR and the Basel traffic light
+
+Banks don't stop at 1-day VaR. Basel III / FRTB measures market risk with **Expected Shortfall** at 97.5% (the average loss on the worst 2.5% of days), uses a **10-day** horizon, and grades VaR models with a **traffic light**: more than four 99% VaR exceptions in the last 250 days moves a model from the green zone to yellow, and raises the multiplier on its capital charge from 3.0 up to 4.0.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/basel-dark.svg">
+  <img alt="Basel traffic light: rolling 250-day 99% VaR exceptions" src="docs/assets/basel-light.svg" width="100%">
+</picture>
+
+| Method | ES 97.5% backtest (Z2, zone) | 10-day 99% VaR breaches | Days in green zone | Max exceptions | Avg capital |
+|---|---|---|---|---|---|
+| Split conformal | -0.16 (green) | 0.58% (pass) | 98% | 5 | 21.8% |
+| Rolling conformal | -0.02 (green) | 0.58% (pass) | 94% | 6 | 23.8% |
+| **ACI** | +0.00 (green) | 0.58% (pass) | 99% | 5 | 30.6% |
+| Gaussian EWMA (RiskMetrics) | -0.44 (green) | 1.17% (pass) | 56% | 9 | 18.0% |
+| Historical simulation | -0.54 (green) | 3.51% (fail) | 66% | 12 | 18.7% |
+| GARCH(1,1)-t | -0.26 (green) | 0.58% (pass) | 77% | 8 | 18.1% |
+
+How to read this:
+- **ES backtest (Acerbi–Székely Z2):** 0 means ES is right; negative means real tail losses were larger than forecast. Conformal ES comes out closest to 0. RiskMetrics and historical simulation underestimate the tail, though they stay inside the green threshold.
+- **10-day breaches:** measured on non-overlapping windows, because overlapping 10-day windows would count one bad week several times.
+- **Capital:** max(10-day VaR, multiplier × 60-day average), as a share of portfolio value.
+
+Conformal methods spend 94–99% of days in the green zone, against 56% for RiskMetrics, but their more conservative VaR needs more capital even after the incumbent's yellow-zone penalty. That is the real trade-off a risk desk weighs.
+
+**Where the risk comes from.** An Euler decomposition of the engine's covariance shows oil (USO) carrying on average **57% of the portfolio's risk with 25% of its weight**, peaking above 100% when Treasuries act as a hedge and take a negative share.
 
 ### What didn't work
 
@@ -169,6 +196,7 @@ The synthetic world answers a question real data can't: *if text contains a sign
 - ACI's long-run bound is checked exactly under a variance shift.
 - The conformal quantile is property-tested (Hypothesis) against exact rational arithmetic.
 - Kupiec and Christoffersen are checked against hand-calculated values, and the false-alarm rate is checked over 400 random breach sequences.
+- ES formulas are checked by numerical integration and Monte Carlo, Z2 by simulation (≈ 0 for a correct model, negative when tails are fatter), and the Basel table and capital formula against hand calculations.
 
 **Reliability.**
 - The SLM's output is forced to follow the JSON schema and is validated, with a retry and a lexicon fallback.
@@ -239,7 +267,8 @@ src/aegis/
   features.py              HAR / EWMA / VIX features · targets · as-of signal aggregation · clipping
   risk_engine.py           EWMA covariance · shock overlay · point / scale / quantile models
   conformal_ncm.py         non-conformity scores · split / rolling / ACI · walk-forward runner
-  baselines.py             Gaussian, historical-simulation and GARCH VaR
+  baselines.py             Gaussian, historical-simulation and GARCH VaR / ES, multi-day GARCH
+  risk_measures.py         Expected Shortfall · Acerbi–Székely Z2 · Basel traffic light · capital · Euler
   metrics.py               coverage · Winkler · Kupiec · Christoffersen
   backtest.py              splits with embargo · walk-forward run for both targets
   report.py                metrics.json · figures · markdown report
@@ -247,7 +276,7 @@ src/aegis/
 dashboard/app.py           Streamlit dashboard over reports/*
 scripts/                   make_readme_assets.py: regenerates every chart in this README
 docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
-tests/                     133 offline tests + network and live-SLM tests
+tests/                     152 offline tests + network and live-SLM tests
 ```
 
 </details>

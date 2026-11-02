@@ -24,7 +24,14 @@ import numpy as np
 import pandas as pd
 
 from aegis import __version__
-from aegis.baselines import garch_var, gaussian_interval, gaussian_var, historical_var
+from aegis.baselines import (
+    garch_es,
+    garch_var,
+    gaussian_interval,
+    gaussian_var,
+    historical_var,
+    historical_var_horizon,
+)
 from aegis.config import AegisConfig
 from aegis.conformal_ncm import (
     AdaptiveConformal,
@@ -48,6 +55,13 @@ from aegis.risk_engine import (
     ewma_covariance,
     fit_shock_overlay,
     return_forecast,
+)
+from aegis.risk_measures import (
+    gaussian_es,
+    historical_es,
+    market_risk_capital,
+    risk_contributions,
+    traffic_light,
 )
 from aegis.slm_parser import build_parser, parse_items
 
@@ -100,6 +114,12 @@ class BacktestResult:
     alpha_paths: pd.DataFrame  # ACI α_t per test day
     info: dict = field(default_factory=dict)  # config, data summary, splits, latency
     parsed: pd.DataFrame | None = None  # per-item parser output (not saved)
+    es: pd.DataFrame | None = None  # r_next, <m>_var and <m>_es levels at the ES tail
+    var_long: pd.DataFrame | None = None  # r_fwd_long and <m> long-horizon VaR levels
+    basel: pd.DataFrame | None = None  # <m>_exceptions, <m>_multiplier, <m>_capital
+    contrib: pd.DataFrame | None = None  # per-asset share of portfolio risk
+
+    _EXTRA = ("es", "var_long", "basel", "contrib")
 
     def save(self, out_dir: Path) -> None:
         out_dir.mkdir(parents=True, exist_ok=True)
@@ -107,6 +127,10 @@ class BacktestResult:
         for a, df in self.var.items():
             df.to_parquet(out_dir / f"var_series_{a:g}.parquet")
         self.alpha_paths.to_parquet(out_dir / "aci_alpha.parquet")
+        for name in self._EXTRA:
+            df = getattr(self, name)
+            if df is not None:
+                df.to_parquet(out_dir / f"{name}.parquet")
         (out_dir / "run_info.json").write_text(json.dumps(self.info, indent=2, default=str))
 
     @classmethod
@@ -115,21 +139,32 @@ class BacktestResult:
         var = {
             a: pd.read_parquet(out_dir / f"var_series_{a:g}.parquet") for a in info["var_alphas"]
         }
+        extra = {
+            name: pd.read_parquet(out_dir / f"{name}.parquet")
+            for name in cls._EXTRA
+            if (out_dir / f"{name}.parquet").exists()
+        }
         return cls(
             vol=pd.read_parquet(out_dir / "vol_series.parquet"),
             var=var,
             alpha_paths=pd.read_parquet(out_dir / "aci_alpha.parquet"),
             info=info,
+            **extra,
         )
 
 
-def _var_method(name: str, alpha: float, cfg: AegisConfig):
+def _var_method(name: str, alpha: float, cfg: AegisConfig, overlap: int = 1):
+    """VaR calibrators. ``overlap`` = h for h-day targets sampled daily: each event is then
+    seen h times by ACI, so its step is scaled to γ/h."""
     ncm = LowerTailResidual()
     c = cfg.conformal
+    floor = alpha * c.aci_floor_ratio if c.aci_floor_ratio else None
     return {
         "split_var": lambda: SplitConformal(ncm, alpha),
         "rolling_var": lambda: RollingConformal(ncm, alpha, window=c.rolling_window),
-        "aci_var": lambda: AdaptiveConformal(ncm, alpha, gamma=c.aci_gamma),
+        "aci_var": lambda: AdaptiveConformal(
+            ncm, alpha, gamma=c.aci_gamma / overlap, alpha_floor=floor
+        ),
     }[name]()
 
 
@@ -195,8 +230,8 @@ def run_backtest(
             cov, overlay_sig.reindex(m.returns.index).to_numpy(), overlay
         )
         X = build_features(m, cfg.risk.ewma_lambda, signals=signals, engine_cov=engine_cov)
-        Y = build_targets(m, h)
-        usable = X.notna().all(axis=1) & Y.notna().all(axis=1)
+        Y = build_targets(m, h, cfg.conformal.long_horizon)
+        usable = X.notna().all(axis=1) & Y[["log_vol_fwd", "ret_fwd"]].notna().all(axis=1)
         X, Y = X[usable], Y[usable]
     sp = make_splits(X.index, cfg.splits.train_end, cfg.splits.cal_end, cfg.splits.test_end,
                      cfg.splits.embargo_days)  # fmt: skip
@@ -224,7 +259,8 @@ def run_backtest(
             continue  # handled in target B
         with timer.stage("calibrate"):
             method = build_method(name, alpha, rolling_window=c.rolling_window,
-                                  aci_gamma=c.aci_gamma, base_ncm=c.online_base)  # fmt: skip
+                                  aci_gamma=c.aci_gamma, base_ncm=c.online_base,
+                                  aci_floor_ratio=c.aci_floor_ratio)  # fmt: skip
             method.fit(f_cal, y_cal)
         with timer.stage("walk_forward"):
             res = run_online(method, f_test, y_test, feedback_lag=h)
@@ -261,6 +297,19 @@ def run_backtest(
                 df["garch_var"] = garch_var(m.portfolio, a, sp.train[-1]).reindex(sp.test)
             var[a] = df
 
+    es_df = var_long = basel = None
+    if "one_sided_var" in c.methods:
+        with timer.stage("risk_measures"):
+            es_df = _expected_shortfall(cfg, m, X, r_next, sigma, sp, f_ret_cal, f_ret_test)
+            var_long = _long_horizon_var(cfg, m, X, Y, sp)
+            if c.long_alpha in var:
+                basel = _basel(var[c.long_alpha], var_long, c.basel_window)
+
+    # Euler risk decomposition from the engine covariance (known at the close of each day).
+    next_w = m.weights.shift(-1).ffill()
+    rc = risk_contributions(engine_cov, next_w.to_numpy())
+    contrib = pd.DataFrame(rc, index=m.returns.index, columns=m.returns.columns).loc[sp.test]
+
     info = {
         "aegis_version": __version__,
         "created": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
@@ -290,4 +339,92 @@ def run_backtest(
         + [n for n in c.methods if n != "one_sided_var"],
         "latency": timer.summary(),
     }
-    return BacktestResult(vol=vol, var=var, alpha_paths=alpha_paths, info=info, parsed=parsed)
+    info["risk_measures"] = {
+        "es_alpha": c.es_alpha,
+        "long_horizon": c.long_horizon,
+        "long_alpha": c.long_alpha,
+        "basel_window": c.basel_window,
+    }
+    return BacktestResult(
+        vol=vol,
+        var=var,
+        alpha_paths=alpha_paths,
+        info=info,
+        parsed=parsed,
+        es=es_df,
+        var_long=var_long,
+        basel=basel,
+        contrib=contrib,
+    )
+
+
+RISK_METHODS = ("split", "rolling", "aci", "gaussian", "hist", "garch")
+
+
+def _expected_shortfall(cfg, m, X, r_next, sigma, sp, f_ret_cal, f_ret_test) -> pd.DataFrame:
+    """VaR and ES levels at the ES tail (default 2.5%) for every method.
+
+    Conformal ES = μ̂ − σ̂ · (mean of calibration scores at or beyond q̂): the average standardized
+    loss beyond VaR in the calibration window. Unlike the VaR bound it carries no finite-sample
+    guarantee; it is judged by the Acerbi–Székely backtest like every other method.
+    """
+    a = cfg.conformal.es_alpha
+    out = pd.DataFrame({"r_next": r_next.loc[sp.test]}, index=sp.test)
+    y_cal = r_next.loc[sp.cal].to_numpy()
+    for name in VAR_METHODS:
+        meth = _var_method(name, a, cfg).fit(f_ret_cal, y_cal)
+        res = run_online(meth, f_ret_test, out["r_next"].to_numpy(), feedback_lag=1,
+                         record_tail=True)  # fmt: skip
+        key = name.removesuffix("_var")
+        out[f"{key}_var"] = res.lo
+        out[f"{key}_es"] = f_ret_test.mu - res.tail * f_ret_test.sigma
+    out["gaussian_var"] = gaussian_var(sigma, a).loc[sp.test]
+    out["gaussian_es"] = gaussian_es(sigma, a).loc[sp.test]
+    out["hist_var"] = historical_var(m.portfolio, a).reindex(sp.test)
+    out["hist_es"] = historical_es(m.portfolio, a).reindex(sp.test)
+    out["garch_var"] = garch_var(m.portfolio, a, sp.train[-1]).reindex(sp.test)
+    out["garch_es"] = garch_es(m.portfolio, a, sp.train[-1]).reindex(sp.test)
+    return out
+
+
+def _long_horizon_var(cfg, m, X, Y, sp) -> pd.DataFrame:
+    """VaR for the summed return over the next ``long_horizon`` days (Basel: 10-day 99%).
+
+    Calibration rows whose h-day target overlaps the test period are dropped (an extra embargo
+    when h exceeds ``splits.embargo_days``), and outcomes are revealed to online methods only
+    h days later.
+    """
+    c = cfg.conformal
+    h, a = c.long_horizon, c.long_alpha
+    y = Y["ret_fwd_long"]
+    pos = pd.Series(np.arange(len(X.index)), index=X.index)
+    first_test = pos[sp.test[0]]
+    cal = sp.cal[(pos[sp.cal] + h < first_test).to_numpy()]
+    test = sp.test[y.loc[sp.test].notna().to_numpy()]
+    scale = np.sqrt(h)  # σ̂ for h days; constant factors cancel in the normalized score anyway
+    f_cal = return_forecast(X.loc[cal, "log_engine_vol"] + np.log(scale))
+    f_test = return_forecast(X.loc[test, "log_engine_vol"] + np.log(scale))
+    out = pd.DataFrame({"r_fwd_long": y.loc[test]}, index=test)
+    for name in VAR_METHODS:
+        meth = _var_method(name, a, cfg, overlap=h).fit(f_cal, y.loc[cal].to_numpy())
+        res = run_online(meth, f_test, out["r_fwd_long"].to_numpy(), feedback_lag=h)
+        out[name.removesuffix("_var")] = res.lo
+    out["gaussian"] = gaussian_var(np.exp(X["log_ewma_vol"]) * scale, a).loc[test]
+    out["hist"] = historical_var_horizon(m.portfolio, a, h).reindex(test)
+    out["garch"] = garch_var(m.portfolio, a, sp.train[-1], horizon=h).reindex(test)
+    return out
+
+
+def _basel(var99: pd.DataFrame, var_long: pd.DataFrame, window: int) -> pd.DataFrame:
+    """Traffic light from 1-day 99% VaR exceptions; capital from the long-horizon VaR."""
+    names = {"split": "split_var", "rolling": "rolling_var", "aci": "aci_var",
+             "gaussian": "gaussian_var", "hist": "hist_var", "garch": "garch_var"}  # fmt: skip
+    out = pd.DataFrame(index=var99.index)
+    for key, col in names.items():
+        breach = (var99["r_next"] < var99[col]).where(var99[col].notna())
+        tl = traffic_light(breach.fillna(False), window)
+        out[f"{key}_exceptions"] = tl["exceptions"]
+        out[f"{key}_multiplier"] = tl["multiplier"]
+        out[f"{key}_capital"] = market_risk_capital(var_long[key].reindex(out.index),
+                                                    tl["multiplier"])  # fmt: skip
+    return out
