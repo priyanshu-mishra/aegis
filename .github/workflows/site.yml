@@ -117,3 +117,23 @@ jobs:
     steps:
       - id: deployment
         uses: actions/deploy-pages@v4
+
+  # Audits the deployed page on an emulated phone. Runs after deploy so a noisy score can't hold
+  # back the nightly data; a failure here flags a regression to fix, it doesn't unpublish.
+  lighthouse:
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Lighthouse (mobile, 3 runs)
+        run: |
+          for i in 1 2 3; do
+            npx -y lighthouse@12 https://priyanshu-mishra.github.io/aegis/ --quiet \
+              --chrome-flags="--headless=new --no-sandbox" --output=json --output-path=lh$i.json
+          done
+      - name: Check scores
+        run: node scripts/lighthouse_check.mjs lh1.json lh2.json lh3.json >> "$GITHUB_STEP_SUMMARY"

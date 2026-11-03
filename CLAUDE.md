@@ -61,7 +61,7 @@ npm run build
 **Python ↔ browser parity.**
 - `site/src/lib/conformal.ts` re-implements split conformal and ACI for the interactive playgrounds. It must match `golden.json` (exported by `export.py`) to 1e-9.
 - `site/src/lib/lexicon.ts` ports the lexicon parser and must match `site/tests/lexicon_golden.json`.
-- When you change conformal or lexicon logic in Python, update the TS port and the golden files.
+- When you change conformal or lexicon logic in Python, update the TS port and regenerate the golden files (`export-site`; `python scripts/make_lexicon_golden.py`). `tests/test_lexicon_golden.py` fails if the lexicon file is stale.
 
 **Generated artifacts with staleness tests.**
 - `docs/MODEL_CARD.md` is rendered by `src/aegis/model_card.py`. `tests/test_model_card.py` fails if it differs from a fresh render of the committed data, so rerun `model-card` after committing new exported data.
@@ -72,7 +72,7 @@ npm run build
 ## CI and deployment
 
 - `.github/workflows/ci.yml` runs ruff and the offline pytest suite on Python 3.11 and 3.12.
-- `.github/workflows/site.yml` runs on weeknights (and on pushes to site, src, tests or config). It refetches data, reruns backtest, ablation, sensitivity and export, runs `npm test`, then builds and deploys to GitHub Pages.
+- `.github/workflows/site.yml` runs on weeknights (and on pushes to site, src, tests or config). It refetches data, reruns backtest, ablation, sensitivity and export, runs `npm test`, then builds and deploys to GitHub Pages. A final `lighthouse` job audits the live page on mobile (median of 3 runs; `scripts/lighthouse_check.mjs`: performance ≥ 90, other categories 100) without blocking the deploy.
 - If the refresh fails, the workflow deploys the committed `site/public/data` snapshot and `status.json` records `fresh: false`. Nightly data is not committed back.
 
 ## Conventions
