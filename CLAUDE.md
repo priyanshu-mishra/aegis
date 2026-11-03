@@ -9,7 +9,7 @@ Aegis is a conformal risk engine for a four-ETF portfolio (SPY, TLT, GLD, USO). 
 Python, from the repo root. Use the project venv: `.venv/bin/python` (the system `python3` does not have `aegis` installed).
 
 ```bash
-pip install -e ".[dev]"                                # extras: [dashboard], [llm]
+pip install -e ".[dev]"                                # extra: [dashboard]
 ruff check . && ruff format --check .                  # CI runs both; line length 100
 pytest -q                                              # offline suite (network/llm markers deselected by default)
 pytest tests/test_conformal.py::test_name -q           # single test

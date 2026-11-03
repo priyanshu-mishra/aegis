@@ -29,7 +29,6 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8", "hypothesis>=6.100", "ruff>=0.5"]
-llm = ["transformers>=4.44", "torch>=2.3", "outlines>=0.1", "huggingface_hub>=0.24"]
 dashboard = ["streamlit>=1.36"]
 
 [project.scripts]

@@ -13,7 +13,7 @@ scikit-learn>=1.4
 arch>=6.3          # GARCH(1,1) baseline
 lightgbm>=4.3      # point + quantile models (CQR)
 
-# Semantic extraction (Ollama HTTP client; heavy HF stack lives in requirements-llm.txt)
+# Semantic extraction (Ollama HTTP client)
 httpx>=0.27
 pydantic>=2.6
 
