@@ -242,6 +242,16 @@ def _cmd_export_site(cfg: AegisConfig, args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_model_card(cfg: AegisConfig, args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from aegis.model_card import write_model_card
+
+    path = write_model_card(Path(args.data), cfg, Path(args.out))
+    console.print(f"[green]Model validation report written to[/green] {path}")
+    return 0
+
+
 def _cmd_dashboard(cfg: AegisConfig, args: argparse.Namespace) -> int:
     import importlib.util
     import subprocess
@@ -289,6 +299,9 @@ def build_parser() -> argparse.ArgumentParser:
     sens.add_argument("--quick", action="store_true", help="skip the EWMA λ re-runs")
     exp = sub.add_parser("export-site", parents=[common], help="write site JSON from a saved run")
     exp.add_argument("--out", default="site/public/data", help="output folder")
+    card = sub.add_parser("model-card", parents=[common], help="write the model validation report")
+    card.add_argument("--data", default="site/public/data", help="exported site data folder")
+    card.add_argument("--out", default="docs/MODEL_CARD.md", help="output file")
     return parser
 
 
@@ -313,6 +326,7 @@ def main(argv: list[str] | None = None) -> int:
         "dashboard": _cmd_dashboard,
         "sensitivity": _cmd_sensitivity,
         "export-site": _cmd_export_site,
+        "model-card": _cmd_model_card,
     }
     handler = handlers[args.command]
     return handler(cfg, args)

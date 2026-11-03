@@ -5,14 +5,15 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 177 offline" src="https://img.shields.io/badge/tests-177%20offline-1baf7a">
+  <img alt="Tests: 180 offline" src="https://img.shields.io/badge/tests-180%20offline-1baf7a">
   <img alt="Ruff" src="https://img.shields.io/badge/lint-ruff-898781">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml"><img alt="Site" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml/badge.svg"></a>
 </p>
 
 <p align="center"><strong><a href="https://priyanshu-mishra.github.io/aegis/">Read the guided study →</a></strong><br>
-A plain-language walk-through with live exhibits, refreshed every weeknight from market data.</p>
+A plain-language walk-through with live exhibits, refreshed every weeknight from market data.<br>
+<a href="docs/MODEL_CARD.md">Model validation report</a>: champion vs incumbent, sensitivity, limitations and monitoring, in the shape of a bank model-risk review.</p>
 
 **Aegis** wraps portfolio-risk forecasts in prediction intervals whose coverage is measured, not assumed. A semantic parser (a deterministic lexicon or a local small language model) turns financial text into structured shock signals; a factor engine forecasts volatility and Value-at-Risk; a conformal prediction layer calibrates the uncertainty around them. Everything is evaluated walk-forward on 2020–2026 market data, with tests that rule out look-ahead.
 
@@ -21,7 +22,7 @@ A plain-language walk-through with live exhibits, refreshed every weeknight from
 - **Textbook conformal prediction under-covers on real markets.** Split conformal reaches 93.3% instead of 95%, and 88.9% in 2020, because markets are not exchangeable. **Adaptive Conformal Inference (ACI) recovers 95.0%**, including 94.5% through the COVID year.
 - **Conformal VaR fixes the 99% tail and keeps a bank's model in the green zone.** Gaussian (RiskMetrics) and historical-simulation VaR breach about twice as often as they should; conformal VaR breaches 0.82–1.05% of days against a 1% target and stays in the Basel green zone 94–99% of the time, against 56% for RiskMetrics. The trade-off is honest: being right costs more capital (22–31% vs 18%), and the strongest classical model, filtered historical simulation, is equally well calibrated with less capital.
 - **Calibrated risk makes better position sizes.** Sizing on the conformal upper bound halves the maximum drawdown of buy & hold (−30% → −13.6%) and lifts Sharpe from 0.75 to 0.97. A 2% daily loss limit set with conformal VaR is breached on 0.82% of days against a 1% target; set with Gaussian VaR, on 1.81%.
-- **Text did not beat prices on real data, and the ablation shows why.** In a synthetic world with a known signal, text only helps when headlines are close to noise-free. Fixing the SLM's schema took its sign accuracy from 70% to 100%, but about eight FOMC statements a year is too sparse a signal.
+- **Text did not beat prices on real data, and the ablation shows why.** In a synthetic world with a known signal, text only helps when headlines are close to noise-free. Fixing the SLM's schema took its sign accuracy from 72% to 100%, but about eight FOMC statements a year is too sparse a signal.
 
 ---
 
@@ -236,7 +237,7 @@ The synthetic world answers a question real data can't: *if text contains a sign
   <img alt="SLM accuracy before and after the direction-named schema" src="docs/assets/slm-light.svg" width="100%">
 </picture>
 
-**A schema bug, not a model limitation.** The first schema used neutral factor names with a stated sign convention ("credit: positive = stress widening"). qwen2.5:3b reversed it wherever the convention was counter-intuitive, scoring "credit spreads tighten" as rising stress on every headline. Naming each field by its positive direction (`credit_stress`, `geopolitical_tension`) and adding balanced few-shot examples took sign agreement from 70% to 100%. The SLM now tracks the true shocks slightly better than the hand-written lexicon, with no hand-written rules. It still reads some zero-rate-era easing as tightening, including the March 2020 emergency cut.
+**A schema bug, not a model limitation.** The first schema used neutral factor names with a stated sign convention ("credit: positive = stress widening"). qwen2.5:3b reversed it wherever the convention was counter-intuitive, scoring "credit spreads tighten" as rising stress on every headline. Naming each field by its positive direction (`credit_stress`, `geopolitical_tension`) and adding balanced few-shot examples took sign agreement from 72% to 100%. The SLM now tracks the true shocks slightly better than the hand-written lexicon, with no hand-written rules. It still reads some zero-rate-era easing as tightening, including the March 2020 emergency cut.
 
 ## Dashboard
 
@@ -297,6 +298,7 @@ The synthetic world answers a question real data can't: *if text contains a sign
 | `bench` | Latency benchmark → `reports/benchmark.json` |
 | `export-site -c <config>` | Export a saved run as JSON for the site (`site/public/data`; see `site/README.md`) |
 | `sensitivity -c <config>` | Coverage and width across α, γ, rolling window and EWMA λ (`--quick` skips the λ re-runs) |
+| `model-card -c <config>` | Write the model validation report `docs/MODEL_CARD.md` from the exported site data |
 | `dashboard` | Streamlit app over all saved runs |
 | `config -c <config>` | Print the resolved configuration |
 
@@ -342,6 +344,7 @@ src/aegis/
   risk_measures.py         Expected Shortfall · Acerbi–Székely Z2 · Basel traffic light · capital · Euler
   portfolio.py             vol targeting · VaR limits · risk parity (ERC) · costs · performance metrics
   sensitivity.py           coverage and width across α, γ, rolling window and EWMA λ
+  model_card.py            model validation report (SR 11-7 shape) from the exported data
   metrics.py               coverage · Winkler · Kupiec · Christoffersen
   backtest.py              splits with embargo · walk-forward run for both targets
   report.py                metrics.json · figures · markdown report
@@ -350,7 +353,7 @@ dashboard/app.py           Streamlit dashboard over reports/*
 site/                      public site: data contract (README.md) and exported JSON (public/data)
 scripts/                   make_readme_assets.py: regenerates every chart in this README
 docs/                      PLAN.md (design + milestone log) · assets/ (diagrams and charts)
-tests/                     177 offline tests + network and live-SLM tests
+tests/                     180 offline tests + network and live-SLM tests
 ```
 
 </details>

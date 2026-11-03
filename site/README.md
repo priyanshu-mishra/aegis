@@ -6,7 +6,8 @@ The public, guided site for Aegis. Plan: [docs/PLAN_v2.md](../docs/PLAN_v2.md), 
 
 Written by `python main.py export-site -c configs/default.yaml` from a saved backtest. The nightly
 `Site` workflow (`.github/workflows/site.yml`) regenerates it, builds the site and deploys it to GitHub Pages; if the data download fails, the committed snapshot is used
-and `status.json` says so.
+and `status.json` says so. After committing a new snapshot, regenerate `docs/MODEL_CARD.md` with
+`python main.py model-card -c configs/default.yaml`; a test fails if it is stale.
 
 Conventions:
 - **Columnar time series:** `{"dates": ["YYYY-MM-DD", …], "series": {"name": [number | null, …]}}`.

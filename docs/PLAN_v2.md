@@ -189,7 +189,7 @@ Navigation: a slim chapter progress rail (sticky on desktop, a top bar on mobile
 | V6 | **Story chapters 0–5** ✅ | Cover to ACI, with split-conformal and ACI playgrounds that share one α and match golden.json exactly in the browser. | 2.5 d |
 | V7 | **Story chapters 6–11** ✅ | Tail risk, Basel view, sizing, a live lexicon parser (matches Python), risk factors, and how it was checked. Breach flags now exported at full precision. | 2.5 d |
 | V8 | **Publish** ✅ | Live at https://priyanshu-mishra.github.io/aegis/. The `Site` workflow refreshes data each weeknight, runs the JS parity tests, builds and deploys; it falls back to the committed snapshot if the download fails. Lighthouse (mobile): performance ~90, accessibility, best practices and SEO 100. | 0.5 d |
-| V9 | **Polish and review** | Mobile pass, reduced motion, comprehension check, copy edit, model validation report (A3) | 1 d |
+| V9 | **Polish and review** ✅ | Model validation report (A3) at `docs/MODEL_CARD.md`, generated from the exported data by `python main.py model-card` with a staleness test; champion vs incumbent, sensitivity, limitations and monitoring triggers. Mobile pass (no sideways scroll at 375 px, tap targets of 24 px or more), reduced motion already honoured, copy edits for three misleading sentences. | 1 d |
 
 Total ≈ 14.5 days. **Suggested order:** V1 → V2 first (the substance), then V4 → V5 → V6–V8 (the site), then V3 and V9. The site can launch with chapters 0–5 and 9–11 while V2's chapter is still being finished.
 

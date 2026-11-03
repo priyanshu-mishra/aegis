@@ -78,8 +78,8 @@ const exhibitBLabel = `Dot plot of breach rates. The normal-distribution model w
     <p>
       The trouble is that most models are calibrated on calm data and then meet a crash. In {firstYear}
       the portfolio's volatility went from {calm.toFixed(0)}% in early February to {wild.toFixed(0)}% on
-      {formatDate(wildDay)}. A model that was honest in 2019 suddenly was not, and the textbook fix
-      for this, which I test in chapter 4, held its {pct(level, 0)} promise on only {pct(vm.split_absolute.by_year[firstYear])}
+      {formatDate(wildDay)}. A model that was honest in 2019 suddenly was not, and the textbook
+      conformal method, which I test in chapter 4, held its {pct(level, 0)} promise on only {pct(vm.split_absolute.by_year[firstYear])}
       of days that year.
     </p>
   </div>

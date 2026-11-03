@@ -84,6 +84,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     white-space: nowrap;
   }
   li a {
+    display: inline-block;
+    padding-block: 0.375rem; /* a 30px tap target inside the head's height */
     text-decoration: none;
     color: var(--ink-2);
   }

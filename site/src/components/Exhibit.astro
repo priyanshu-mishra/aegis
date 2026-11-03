@@ -66,6 +66,7 @@ const hasTable = Astro.slots.has("table");
     cursor: pointer;
     color: var(--ink-2);
     width: max-content;
+    padding-block: 0.25rem; /* at least a 24px tap target */
   }
   summary:hover {
     color: var(--ink);
@@ -88,5 +89,15 @@ const hasTable = Astro.slots.has("table");
   .table :global(th) {
     font-weight: 600;
     border-bottom: 1px solid var(--rule-strong);
+  }
+  @media (max-width: 600px) {
+    /* Wide tables scroll inside the exhibit rather than pushing the page sideways. */
+    .table {
+      overflow-x: auto;
+    }
+    .table :global(th),
+    .table :global(td) {
+      padding: 0.3rem 0.3rem;
+    }
   }
 </style>
