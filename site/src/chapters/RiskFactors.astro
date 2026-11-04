@@ -19,6 +19,8 @@ const ext = load("extensions");
 const pm = Object.fromEntries(ext.point_models.rows.map((r: any) => [r.kind, r]));
 const aciCover = ext.point_models.rows.map((r: any) => r.aci.coverage);
 const dmWorst = Math.max(pm.mlp.dm_p, pm.lightgbm.dm_p);
+const unc = load("uncertainty");
+const c2020 = unc.coverage_2020.aci;
 const ew = ext.early_warning;
 const e99 = Object.fromEntries(ew.levels["0.01"].map((r: any) => [r.method, r]));
 ---
@@ -110,7 +112,7 @@ const e99 = Object.fromEntries(ew.levels["0.01"].map((r: any) => [r.method, r]))
         One portfolio of four funds; one test period, {meta.splits.test.start.slice(0, 4)}–{meta.splits.test.end.slice(0, 4)}, with
         one crash; free daily data from Yahoo Finance; trading costs modelled as a flat
         {" "}{meta.strategy.cost_bps} basis points. The ten-day regulatory test rests on {long.aci.n_nonoverlap} non-overlapping windows,
-        too few to separate most models. None of this is investment advice.
+        too few to separate most models. Even the headline 2020 coverage, {pct(c2020.estimate)}, carries a 95% interval of {pct(c2020.lo)} to {pct(c2020.hi)}, because one year is about 250 overlapping days. None of this is investment advice.
       </p>
     </li>
   </ol>

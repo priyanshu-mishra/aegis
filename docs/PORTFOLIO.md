@@ -85,7 +85,7 @@ past, so the design is built around preventing it. Models fit on 2010–2017 onl
 are set on 2018–2019; nothing from 2020 on informs any parameter. News counts for a day only if it was
 published before the 4 p.m. New York close. Adaptive methods learn each five-day outcome five days late.
 An end-to-end test changes every price after day *t* and asserts nothing dated on or before *t*
-moves. 196 offline tests cover this, the statistics themselves (coverage over 2,000 simulated trials,
+moves. 201 offline tests cover this, the statistics themselves (coverage over 2,000 simulated trials,
 the conformal quantile against exact arithmetic) and a check that the browser versions of the
 algorithms match Python to the last digit.
 
@@ -149,7 +149,7 @@ Astro and Svelte, GitHub Actions and Pages.*
   protocol (embargoes, delayed feedback, an as-of news clock) and benchmarked five classical models with Kupiec,
   Christoffersen, Acerbi–Székely and Basel tests. Added a locally run language model for Federal
   Reserve text, using constrained decoding and schema redesign. Built volatility-targeting
-  strategies, 196 tests, a nightly-refreshed public site, and a bank-style model validation report.
+  strategies, 201 tests, a nightly-refreshed public site, and a bank-style model validation report.
 - **Result.** Over 1,712 unseen trading days the adaptive intervals held a 95% target on 95.0% of
   days (textbook method: 93.3%) and 94.5% through the 2020 crash (88.9%); 99% loss-limit breaches
   were 0.93% versus 1.93% for the industry model. Volatility-targeting on the forecasts cut the worst
@@ -159,14 +159,14 @@ Astro and Svelte, GitHub Actions and Pages.*
 ### Resume bullets (pick two or three)
 
 - Built a conformal-prediction risk engine for a four-ETF portfolio and validated it walk-forward on
-  1,712 unseen days: 95.0% interval coverage against a 95% target (textbook method 93.3%), and 94.5%
-  through the 2020 crash (88.9%).
+  1,712 unseen days: 95.0% interval coverage against a 95% target (textbook method 93.3%; the gap is
+  +1.7 points, 95% block-bootstrap interval +0.8 to +2.8), and 94.5% through the 2020 crash (88.9%).
 - Backtested 99% VaR against five classical baselines with Kupiec, Christoffersen, Acerbi–Székely and the Basel
   traffic light: 0.93% breach rate versus 1.93% for RiskMetrics, in the green zone on 98.8% of days
   versus 56.4%.
 - Used the forecasts to size positions: volatility targeting halved the worst drawdown (−30.2% to
   −13.6%) and raised Sharpe from 0.75 to 0.97 after trading costs.
-- Engineered for reproducibility: 196 offline tests including look-ahead tests, JS/Python parity checks, an
+- Engineered for reproducibility: 201 offline tests including look-ahead tests, JS/Python parity checks, an
   SR 11-7-style validation report generated from data, and nightly CI that rebuilds and deploys the
   public study.
 - Used a local 3B-parameter LLM with constrained JSON decoding to turn FOMC statements into risk
@@ -192,7 +192,7 @@ metric, or "predicts the market" (it forecasts risk and its error, not returns).
 | *How do you know there's no look-ahead?* | By construction (embargoes, delayed feedback, 4 p.m. news clock) and by test: perturb every price after day *t* and assert nothing earlier changes. |
 | *Did you fine-tune the language model?* | No. Prompting, constrained decoding and schema design. With 139 unlabeled statements, fine-tuning would overfit or memorise outcomes, so I used a synthetic world with known shocks instead. |
 | *Why did text not help?* | About eight statements a year against a VIX that reprices the news in minutes. I showed the pipeline does recover the signal when it exists, so the limit is the data. |
-| *What's the weakest part?* | One portfolio, one crash, free data, and confidence intervals only on the point-model comparison. The tail breaches cluster, and I tested a learned early-warning fix that did not work. Section 5 lists the rest. |
+| *What's the weakest part?* | One portfolio, one crash and free data; the 2020 coverage interval is wide (86.6% to 99.2%). Against filtered historical simulation I cannot show a difference. The tail breaches cluster, and a learned early-warning fix did not work. Section 5 lists the rest. |
 | *Is it production-ready?* | The validation, monitoring triggers and nightly refresh are. It is not: no intraday data, flat trading costs, one asset class. |
 
 ---
@@ -202,10 +202,11 @@ metric, or "predicts the market" (it forecasts risk and its error, not returns).
 Ordered by value for effort, each doable in days. Larger research directions are in
 [ROADMAP_ADVANCED.md](ROADMAP_ADVANCED.md) and AI-based ones in [AI_EXTENSIONS.md](AI_EXTENSIONS.md).
 
-1. **Put error bars on the comparisons.** Coverage of 95.0% against 93.3% is reported as a point
-   estimate. The point-model comparison now has Diebold–Mariano tests; the coverage and breach-rate
-   comparisons still need block-bootstrap confidence intervals. This is the most important
-   statistical gap.
+1. **Done: error bars on the comparisons.** Coverage and breach-rate differences now carry paired
+   block-bootstrap 95% intervals (section 5 of the validation report). They confirm the advantage
+   over the textbook method and over RiskMetrics at 99%, and show no detectable difference against
+   filtered historical simulation. The next step is multiple-testing control across a larger
+   universe of assets.
 2. **More assets and a second test period.** Add equities in other regions, credit and FX, and a
    pre-2020 test (2008) to see whether the 2020 result generalises.
 3. **Realistic costs and capacity.** Replace the flat 5 bp with a spread-and-impact model, and

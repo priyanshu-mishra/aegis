@@ -29,6 +29,7 @@ from aegis.conformal_ncm import (
     SplitConformal,
     run_online,
 )
+from aegis.metrics import block_bootstrap_ci, is_covered, paired_block_bootstrap_ci
 from aegis.report import compute_metrics
 
 SCHEMA_VERSION = 1
@@ -123,6 +124,71 @@ def golden_values(res: BacktestResult, alphas=(0.05, 0.10)) -> dict:
     return out
 
 
+BOOT_BLOCK, BOOT_DRAWS = 21, 2000
+
+
+def _ci(x: np.ndarray, block: int = BOOT_BLOCK) -> dict:
+    if len(x) == 0:  # e.g. a year the data does not cover
+        return {"estimate": None, "lo": None, "hi": None}
+    lo, hi = block_bootstrap_ci(x, block, BOOT_DRAWS)
+    return {"estimate": float(np.mean(x)), "lo": lo, "hi": hi}
+
+
+def _diff(a: np.ndarray, b: np.ndarray) -> dict:
+    if len(a) == 0:
+        return {"estimate": None, "lo": None, "hi": None}
+    lo, hi = paired_block_bootstrap_ci(a, b, BOOT_BLOCK, BOOT_DRAWS)
+    return {"estimate": float(np.mean(a) - np.mean(b)), "lo": lo, "hi": hi}
+
+
+def uncertainty(res: BacktestResult) -> dict:
+    """How much of each headline number is luck: 95% moving-block-bootstrap intervals (21-day
+    blocks, 2,000 draws, fixed seed) for coverage and breach rates, and paired intervals for the
+    comparisons the study makes. A difference whose interval includes 0 is not established."""
+    vol = res.vol
+    y = vol["y"].to_numpy()
+    flags = {
+        m: is_covered(y, vol[f"{m}_lo"].to_numpy(), vol[f"{m}_hi"].to_numpy())
+        for m in res.info["vol_methods"]
+    }
+    in2020 = (vol.index.year == 2020).astype(bool)
+    out: dict = {
+        "method": "moving-block bootstrap, percentile interval",
+        "block_days": BOOT_BLOCK,
+        "draws": BOOT_DRAWS,
+        "level": 0.95,
+        "coverage": {m: _ci(f.astype(float)) for m, f in flags.items()},
+        "coverage_2020": {m: _ci(f[in2020].astype(float)) for m, f in flags.items()},
+        "aci_coverage_by_block": {
+            str(b): _ci(flags["aci"].astype(float), b) for b in (5, 21, 63)
+        },
+        "diff": {
+            "aci_minus_split_coverage": _diff(flags["aci"].astype(float),
+                                              flags["split_absolute"].astype(float)),
+            "aci_minus_split_coverage_2020": _diff(flags["aci"][in2020].astype(float),
+                                                   flags["split_absolute"][in2020].astype(float)),
+            "aci_minus_gaussian_coverage": _diff(flags["aci"].astype(float),
+                                                 flags["gaussian"].astype(float)),
+        },
+        "breach": {},
+        "breach_diff": {},
+    }  # fmt: skip
+    for a, df in res.var.items():
+        r = df["r_next"].to_numpy(dtype=float)
+        b = {
+            m: (r < df[m].to_numpy(dtype=float)).astype(float) for m in df.columns if m != "r_next"
+        }
+        ok = {m: ~np.isnan(df[m].to_numpy(dtype=float)) for m in b}
+        out["breach"][str(a)] = {m: _ci(b[m][ok[m]]) for m in b}
+        common = ok["aci_var"] & ok["gaussian_var"]
+        out["breach_diff"][str(a)] = {
+            "aci_minus_gaussian": _diff(b["aci_var"][common], b["gaussian_var"][common]),
+            "aci_minus_fhs": _diff(b["aci_var"][ok["aci_var"] & ok["fhs_var"]],
+                                   b["fhs_var"][ok["aci_var"] & ok["fhs_var"]]),
+        }  # fmt: skip
+    return out
+
+
 def _var_frame(df: pd.DataFrame) -> dict:
     """VaR levels at 1bp, plus a ``<method>_breach`` flag (1/0, null with no forecast) computed at
     full precision as in ``report.var_metrics``; the rounded levels alone cannot settle ties."""
@@ -171,6 +237,7 @@ def export_site(
     }
     written.append(_write(out_dir, "meta", meta))
     written.append(_write(out_dir, "metrics", compute_metrics(res)))
+    written.append(_write(out_dir, "uncertainty", uncertainty(res), digits=5))
     written.append(_write(out_dir, "vol", _frame(res.vol)))
     if res.vol_cal is not None:
         written.append(_write(out_dir, "calibration", _frame(res.vol_cal)))

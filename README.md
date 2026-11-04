@@ -7,7 +7,7 @@
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml"><img alt="Site" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml/badge.svg"></a>
   <a href="https://priyanshu-mishra.github.io/aegis/"><img alt="Live study" src="https://img.shields.io/badge/live%20study-updated%20nightly-c0261d"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 196 offline" src="https://img.shields.io/badge/tests-196%20offline-1baf7a">
+  <img alt="Tests: 201 offline" src="https://img.shields.io/badge/tests-201%20offline-1baf7a">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
 </p>
 
@@ -59,7 +59,7 @@ The stakes depend on who you are:
 | **A risk manager or regulator** | Under the Basel rules, a bank whose 99% VaR model is breached too often is pushed from the *green zone* to *yellow* or *red*, raising its capital charge or forcing a model review. The adaptive model here stayed green on **98.8%** of days; the bell-curve model on **56.4%**. |
 | **A portfolio manager** | Position sizes come from risk forecasts. Sizing on an *honest* risk estimate kept volatility close to its 10% target and gave the shallowest drawdown of every rule tested. |
 | **An ML or data-science practitioner** | This is the general problem of **uncertainty under distribution shift**: a model calibrated on yesterday's data deployed into a world that changes. Markets are a hard, fully public test case, with a crash in the middle of the test set. |
-| **A quant developer** | The whole study is reproducible from one command, guarded by 196 tests including leakage tests, and refreshed nightly by CI. Every number in this README comes from saved runs. |
+| **A quant developer** | The whole study is reproducible from one command, guarded by 201 tests including leakage tests, and refreshed nightly by CI. Every number in this README comes from saved runs. |
 
 > [!NOTE]
 > **The core idea in one sentence.** The textbook method sets the error bar once, from past mistakes, and assumes the future looks like the past. The adaptive method (*Adaptive Conformal Inference*, ACI) keeps score as it goes: each time the range misses it widens a little, each time it holds it narrows a little. In 2020 that feedback loop is what kept the promise.
@@ -110,6 +110,25 @@ The bound holds for *any* sequence. A floor of 0.2·α stops the working level f
 ## Results
 
 All results are out-of-sample: 1,712 trading days from January 2020 to October 2026, never used for fitting or calibration.
+
+<details>
+<summary><b>How sure am I? Bootstrap intervals on the headline differences</b></summary>
+
+<br>
+
+Breaches and misses arrive in bursts, so these are moving-block bootstrap intervals (21-day blocks, 2,000 draws, paired across methods), not plain error bars. An effect is *established* when its 95% interval excludes zero.
+
+| Comparison | Difference | 95% interval | Verdict |
+|---|---|---|---|
+| Coverage: ACI minus textbook split conformal | +1.7 points | +0.8 to +2.8 | established |
+| Same, in 2020 alone | +5.5 points | +1.6 to +11.1 | established |
+| 99% breach rate: ACI minus RiskMetrics | −1.0 points | −1.5 to −0.5 | established |
+| 99% breach rate: ACI minus filtered historical simulation | −0.1 points | −0.4 to +0.2 | **not established** |
+| 95% breach rate: ACI minus RiskMetrics | −0.1 points | −0.6 to +0.4 | **not established** |
+
+ACI's own coverage is 95.0% (93.2% to 96.8%); in 2020 alone, 94.5% (86.6% to 99.2%), wide because a year is about 250 overlapping days. So the advantage over the textbook method and over the bell-curve model at 99% is real; against filtered historical simulation, and for 95% breaches, it is not shown. Full table: [validation report, section 5](docs/MODEL_CARD.md#5-performance-champion-against-incumbent-and-challengers).
+
+</details>
 
 ### 1 · Error bars that keep their promise
 
@@ -418,7 +437,7 @@ dashboard/app.py           Streamlit dashboard over reports/*
 site/                      the guided study (Astro + Svelte), its data contract and exported JSON
 scripts/                   README charts · extension studies · lexicon reference file · Lighthouse check
 docs/                      validation report · write-ups · extension studies · plans · assets/ (see docs/README.md)
-tests/                     196 offline tests + network and live-model tests
+tests/                     201 offline tests + network and live-model tests
 ```
 
 </details>

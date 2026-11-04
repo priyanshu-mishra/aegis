@@ -9,6 +9,11 @@ const status = load("status");
 const bench = load("benchmark");
 const golden = load("golden");
 const sp = meta.splits;
+const unc = load("uncertainty");
+const pts = (x: number, d = 1) => `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(d)}`;
+const dCov = unc.diff.aci_minus_split_coverage;
+const dBreach = unc.breach_diff["0.01"].aci_minus_gaussian;
+const dFhs = unc.breach_diff["0.01"].aci_minus_fhs;
 const tests = testCounts();
 const levels = Object.keys(golden.levels).map((a) => `${Math.round((1 - +a) * 100)}%`).join(" and ");
 const checks = [
@@ -27,6 +32,10 @@ const checks = [
   {
     what: "Python and browser agree",
     how: `The playgrounds re-implement conformal prediction in the browser. A test checks them against Python's reference values at ${levels}, to the last digit; the same goes for the lexicon reader.`,
+  },
+  {
+    what: "Luck or skill?",
+    how: `Each difference is tested, not eyeballed, with block-bootstrap intervals that respect how breaches bunch. Adaptive intervals beat the textbook method on coverage by ${pts(dCov.estimate)} points (95% interval ${pts(dCov.lo)} to ${pts(dCov.hi)}), and their 99% breach rate differs from the bell-curve model's by ${pts(dBreach.estimate)} points (${pts(dBreach.lo)} to ${pts(dBreach.hi)}). Against filtered historical simulation the gap is ${pts(dFhs.estimate)} points (${pts(dFhs.lo)} to ${pts(dFhs.hi)}), which includes zero: no difference can be shown.`,
   },
   {
     what: "Every number is generated",

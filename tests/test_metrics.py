@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from aegis.metrics import (
+    block_bootstrap_ci,
     christoffersen_conditional,
     christoffersen_independence,
     coverage,
@@ -13,6 +14,7 @@ from aegis.metrics import (
     is_covered,
     kupiec_pof,
     mean_width,
+    paired_block_bootstrap_ci,
     rolling_coverage,
 )
 
@@ -148,3 +150,37 @@ def test_diebold_mariano_long_run_variance_grows_with_positive_autocorrelation()
     d = np.convolve(e, np.ones(5) / 5, mode="same") + 0.05  # a moving average is autocorrelated
     naive, robust = diebold_mariano(d, 0 * d, lag=0), diebold_mariano(d, 0 * d, lag=8)
     assert abs(robust.statistic) < abs(naive.statistic)
+
+
+def test_block_bootstrap_ci_covers_the_truth_at_about_its_level():
+    rng = np.random.default_rng(0)
+    hits = 0
+    for trial in range(200):
+        x = (rng.random(1500) < 0.05).astype(float)
+        lo, hi = block_bootstrap_ci(x, block=10, n_boot=400, seed=trial)
+        hits += lo <= 0.05 <= hi
+    assert 0.88 <= hits / 200 <= 0.99
+
+
+def test_block_bootstrap_ci_is_wider_when_flags_cluster():
+    rng = np.random.default_rng(1)
+    iid = (rng.random(2000) < 0.05).astype(float)
+    runs = np.repeat((rng.random(100) < 0.05).astype(float), 20)  # same rate, in 20-day bursts
+    w = lambda x: np.subtract(*block_bootstrap_ci(x, block=21, seed=0)[::-1])  # noqa: E731
+    assert w(runs) > 2 * w(iid)
+
+
+def test_block_bootstrap_ci_is_reproducible_and_brackets_the_mean():
+    x = np.random.default_rng(2).random(500) < 0.3
+    a, b = block_bootstrap_ci(x, seed=7), block_bootstrap_ci(x, seed=7)
+    assert a == b and a[0] < x.mean() < a[1]
+
+
+def test_paired_ci_excludes_zero_for_a_real_difference_and_includes_it_for_a_tie():
+    rng = np.random.default_rng(3)
+    base = (rng.random(2000) < 0.05).astype(float)
+    worse = np.maximum(base, (rng.random(2000) < 0.04).astype(float))  # about 4 points more
+    lo, hi = paired_block_bootstrap_ci(worse, base, seed=0)
+    assert lo > 0
+    lo, hi = paired_block_bootstrap_ci(base, base.copy(), seed=0)
+    assert lo == hi == 0.0

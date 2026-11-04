@@ -85,6 +85,24 @@ The textbook split method under-covers in the 2020 crash (88.9%); ACI holds 94.5
 ACI's weakest year is 2025 (92.4%). Mondrian conformal (separate cut-offs per VIX tercile) lifts stressed-market
 coverage but under-covers calm markets because the tercile boundaries drifted after calibration.
 
+**Is the difference luck?** Breaches and misses come in bursts, so a plain error bar would be too
+narrow. These are 95% moving-block bootstrap intervals (21-day blocks,
+2,000 draws), paired so that days that were hard for every method cancel out.
+ACI's own coverage is 95.0% (interval 93.2% to 96.8%); in 2020 alone it is
+94.5% (86.6% to 99.2%), wide because a single year is about
+250 overlapping days. The interval for overall coverage barely moves with the block length
+(93.3% to 96.5% at 5 days, 93.4% to 96.8% at 63).
+
+| Comparison                                                    |   Difference |   95% interval | Verdict             |
+|---------------------------------------------------------------|--------------|----------------|---------------------|
+| Interval coverage, ACI minus split conformal                  |  +1.7 points |   +0.8 to +2.8 | established         |
+| Same, 2020 only                                               |  +5.5 points |  +1.6 to +11.1 | established         |
+| Interval coverage, ACI minus Gaussian EWMA                    |  +1.0 points |   +0.1 to +2.0 | established         |
+| 99% VaR breach rate, ACI minus Gaussian EWMA                  |  -1.0 points |   -1.5 to -0.5 | established         |
+| 99% VaR breach rate, ACI minus filtered historical simulation |  -0.1 points |   -0.4 to +0.2 | **not established** |
+| 95% VaR breach rate, ACI minus Gaussian EWMA                  |  -0.1 points |   -0.6 to +0.4 | **not established** |
+| 95% VaR breach rate, ACI minus filtered historical simulation |  -0.4 points |   -1.1 to +0.3 | **not established** |
+
 **In use: volatility targeting at 10%.**
 
 | Strategy                          |   Sharpe |   Volatility |   Max drawdown |   Days over target |   2% loss-limit breaches |
@@ -152,7 +170,8 @@ change width, not calibration.
    advantage is that it needs no model of the return distribution, not superior calibration.
 4. **Text adds nothing on real data.** FOMC statements raised forecast error by 1.2%
    with the lexicon, so the production configuration is price-only.
-5. **Narrow evidence.** One four-asset portfolio, one test period with one crash, free data, flat
+5. **Narrow evidence.** The 2020 coverage figure has a wide interval (86.6% to 99.2%), and ACI is statistically
+   indistinguishable from filtered historical simulation on breach rate (section 5). One four-asset portfolio, one test period with one crash, free data, flat
    5 bp trading costs. The 10-day regulatory test has only 171 non-overlapping windows.
 
 **Issues found in development and fixed** (each now has a regression test):

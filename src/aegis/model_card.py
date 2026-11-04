@@ -68,8 +68,47 @@ def current_monitoring(data: Path, alpha99: float = 0.01) -> dict:
     }
 
 
+def _pts(x: float, d: int = 1) -> str:
+    return f"{100 * x:+.{d}f}"
+
+
+def _significance(u: dict) -> str:
+    """Paired comparisons with their bootstrap intervals; 'established' means the interval excludes 0."""
+
+    def row(label: str, d: dict) -> list[str]:
+        ok = d["lo"] > 0 or d["hi"] < 0
+        return [
+            label,
+            f"{_pts(d['estimate'])} points",
+            f"{_pts(d['lo'])} to {_pts(d['hi'])}",
+            "established" if ok else "**not established**",
+        ]
+
+    diff, b01, b05 = u["diff"], u["breach_diff"]["0.01"], u["breach_diff"]["0.05"]
+    return _table(
+        [
+            row("Interval coverage, ACI minus split conformal", diff["aci_minus_split_coverage"]),
+            row("Same, 2020 only", diff["aci_minus_split_coverage_2020"]),
+            row("Interval coverage, ACI minus Gaussian EWMA", diff["aci_minus_gaussian_coverage"]),
+            row("99% VaR breach rate, ACI minus Gaussian EWMA", b01["aci_minus_gaussian"]),
+            row(
+                "99% VaR breach rate, ACI minus filtered historical simulation",
+                b01["aci_minus_fhs"],
+            ),
+            row("95% VaR breach rate, ACI minus Gaussian EWMA", b05["aci_minus_gaussian"]),
+            row(
+                "95% VaR breach rate, ACI minus filtered historical simulation",
+                b05["aci_minus_fhs"],
+            ),
+        ],
+        ["Comparison", "Difference", "95% interval", "Verdict"],
+        ("left", "right", "right", "left"),
+    )
+
+
 def render(data: Path, cfg: AegisConfig) -> str:
     meta, m = _load(data, "meta"), _load(data, "metrics")
+    u = _load(data, "uncertainty")
     sens = _load(data, "sensitivity_default")
     abl = _load(data, "ablation_default")
     # SLM sign agreement on near-noise-free synthetic headlines, before and after the schema fix.
@@ -344,6 +383,16 @@ The textbook split method under-covers in the 2020 crash ({_pct(vm["split_absolu
 ACI's weakest year is {aci_worst_year} ({_pct(vm["aci"]["by_year"][aci_worst_year])}). Mondrian conformal (separate cut-offs per VIX tercile) lifts stressed-market
 coverage but under-covers calm markets because the tercile boundaries drifted after calibration.
 
+**Is the difference luck?** Breaches and misses come in bursts, so a plain error bar would be too
+narrow. These are {u["level"]:.0%} moving-block bootstrap intervals ({u["block_days"]}-day blocks,
+{u["draws"]:,} draws), paired so that days that were hard for every method cancel out.
+ACI's own coverage is {_pct(u["coverage"]["aci"]["estimate"])} (interval {_pct(u["coverage"]["aci"]["lo"])} to {_pct(u["coverage"]["aci"]["hi"])}); in 2020 alone it is
+{_pct(u["coverage_2020"]["aci"]["estimate"])} ({_pct(u["coverage_2020"]["aci"]["lo"])} to {_pct(u["coverage_2020"]["aci"]["hi"])}), wide because a single year is about
+250 overlapping days. The interval for overall coverage barely moves with the block length
+({_pct(u["aci_coverage_by_block"]["5"]["lo"])} to {_pct(u["aci_coverage_by_block"]["5"]["hi"])} at 5 days, {_pct(u["aci_coverage_by_block"]["63"]["lo"])} to {_pct(u["aci_coverage_by_block"]["63"]["hi"])} at 63).
+
+{_significance(u)}
+
 **In use: volatility targeting at {meta["strategy"]["target_vol"]:.0%}.**
 
 {sizing}
@@ -384,7 +433,8 @@ change width, not calibration.
    advantage is that it needs no model of the return distribution, not superior calibration.
 4. **Text adds nothing on real data.** FOMC statements raised forecast error by {_pct(lex["rmse"] / base - 1)}
    with the lexicon, so the production configuration is price-only.
-5. **Narrow evidence.** One four-asset portfolio, one test period with one crash, free data, flat
+5. **Narrow evidence.** The 2020 coverage figure has a wide interval ({_pct(u["coverage_2020"]["aci"]["lo"])} to {_pct(u["coverage_2020"]["aci"]["hi"])}), and ACI is statistically
+   indistinguishable from filtered historical simulation on breach rate (section 5). One four-asset portfolio, one test period with one crash, free data, flat
    {meta["strategy"]["cost_bps"]:g} bp trading costs. The 10-day regulatory test has only {m["var_long"]["aci"]["n_nonoverlap"]} non-overlapping windows.
 
 **Issues found in development and fixed** (each now has a regression test):

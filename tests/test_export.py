@@ -33,8 +33,9 @@ def _load(out, name):
 def test_expected_files_and_strict_json(exported):
     _, out = exported
     names = {p.stem for p in out.glob("*.json")}
-    assert {"meta", "metrics", "vol", "calibration", "golden", "aci_alpha", "var", "es",
-            "var_long", "basel", "contrib", "strategies", "lexicon"} <= names  # fmt: skip
+    expected = {"meta", "metrics", "vol", "calibration", "golden", "aci_alpha", "var", "es",
+                "var_long", "basel", "contrib", "strategies", "lexicon", "uncertainty"}  # fmt: skip
+    assert expected <= names
     for p in out.glob("*.json"):
         text = p.read_text()
         assert "NaN" not in text and "Infinity" not in text, p.name
@@ -121,3 +122,17 @@ def test_var_breach_flags_match_metrics(exported):
             flags = [f for f in frame["series"][f"{m}_breach"] if f is not None]
             assert len(flags) == stats["days"]
             assert sum(flags) / len(flags) == pytest.approx(stats["breach_rate"], abs=1e-6)
+
+
+def test_uncertainty_intervals_bracket_the_estimates_and_match_metrics(exported):
+    _, out = exported
+    u, m = _load(out, "uncertainty"), _load(out, "metrics")
+    for meth, ci in u["coverage"].items():
+        assert ci["lo"] <= ci["estimate"] <= ci["hi"]
+        assert ci["estimate"] == pytest.approx(m["vol"][meth]["coverage"], abs=1e-5)
+    for a, per in u["breach"].items():
+        for meth, ci in per.items():
+            assert ci["lo"] <= ci["estimate"] <= ci["hi"]
+            assert ci["estimate"] == pytest.approx(m["var"][a][meth]["breach_rate"], abs=1e-4)
+    d = u["diff"]["aci_minus_split_coverage"]
+    assert d["lo"] <= d["estimate"] <= d["hi"]

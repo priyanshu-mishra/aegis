@@ -148,3 +148,40 @@ def diebold_mariano(loss_a: np.ndarray, loss_b: np.ndarray, lag: int = 0) -> Tes
         return TestResult(0.0, 1.0, n - 1)
     stat = float(d.mean() / np.sqrt(lrv / n))
     return TestResult(stat, float(2 * stats.norm.sf(abs(stat))), n - 1)
+
+
+# --------------------------------------------------------------------------------------------
+# Uncertainty on the metrics themselves
+# --------------------------------------------------------------------------------------------
+
+
+def _block_means(x: np.ndarray, block: int, n_boot: int, seed: int) -> np.ndarray:
+    """Means of ``n_boot`` moving-block bootstrap resamples of ``x`` (blocks of consecutive days
+    keep the serial dependence that breaches and misses have)."""
+    n = x.shape[-1]
+    block = max(1, min(block, n))
+    n_blocks = -(-n // block)
+    starts = np.random.default_rng(seed).integers(0, n - block + 1, size=(n_boot, n_blocks))
+    idx = (starts[:, :, None] + np.arange(block)).reshape(n_boot, -1)[:, :n]
+    return x[..., idx].mean(axis=-1)
+
+
+def block_bootstrap_ci(
+    x: np.ndarray, block: int = 21, n_boot: int = 2000, level: float = 0.95, seed: int = 0
+) -> tuple[float, float]:
+    """Percentile interval for the mean of a daily series (e.g. a 0/1 coverage or breach flag)."""
+    means = _block_means(np.asarray(x, dtype=float), block, n_boot, seed)
+    a = (1 - level) / 2
+    return float(np.quantile(means, a)), float(np.quantile(means, 1 - a))
+
+
+def paired_block_bootstrap_ci(
+    a: np.ndarray, b: np.ndarray, block: int = 21, n_boot: int = 2000, level: float = 0.95,
+    seed: int = 0,
+) -> tuple[float, float]:  # fmt: skip
+    """Percentile interval for mean(a) − mean(b) when both series are over the same days.
+
+    The same blocks of days are drawn for both, so day-to-day luck that hits both methods cancels.
+    """
+    d = np.asarray(a, dtype=float) - np.asarray(b, dtype=float)
+    return block_bootstrap_ci(d, block, n_boot, level, seed)
