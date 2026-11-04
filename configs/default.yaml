@@ -27,7 +27,7 @@ parser:
 risk:
   ewma_lambda: 0.94
   horizon_days: 5
-  point_model: ridge   # out-of-sample log-vol RMSE 2020–2026: ridge 0.439, HAR 0.446, LightGBM 0.467
+  point_model: ridge   # test-period log-vol RMSE: ridge 0.428, HAR 0.446, neural net 0.456, LightGBM 0.471 (docs/POINT_MODELS.md)
 
 conformal:
   alpha: 0.05

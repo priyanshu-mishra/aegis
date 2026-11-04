@@ -99,7 +99,7 @@ class ParserConfig(_Strict):
 class RiskConfig(_Strict):
     ewma_lambda: float = Field(0.94, gt=0, lt=1)
     horizon_days: int = Field(5, ge=1)
-    point_model: Literal["har_ols", "ridge", "lightgbm"] = (
+    point_model: Literal["har_ols", "ridge", "lightgbm", "mlp"] = (
         "ridge"  # best out-of-sample on real and synthetic data (M3)
     )
     use_semantic_overlay: bool = True
@@ -135,6 +135,11 @@ class ConformalConfig(_Strict):
     long_horizon: int = Field(10, ge=2, description="Regulatory VaR horizon in days (Basel: 10)")
     long_alpha: float = Field(0.01, gt=0, lt=0.5, description="Tail for the long-horizon VaR")
     basel_window: int = Field(250, ge=50, description="Days per Basel traffic-light window")
+    early_warning: bool = Field(
+        False,
+        description="Also run regime-conditional ACI VaR, with regimes from current volatility "
+        "(control) and from a learned stress probability (extension B).",
+    )
 
     @field_validator("var_alphas")
     @classmethod

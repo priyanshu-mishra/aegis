@@ -39,6 +39,7 @@ from aegis.conformal_ncm import (
     AdaptiveConformal,
     DtACI,
     LowerTailResidual,
+    RegimeACI,
     RollingConformal,
     SplitConformal,
     build_method,
@@ -46,6 +47,7 @@ from aegis.conformal_ncm import (
     run_online,
 )
 from aegis.data import Dataset, load_dataset
+from aegis.early_warning import StressModel, stress_features, stress_label
 from aegis.features import (
     aggregate_signals,
     build_features,
@@ -295,9 +297,15 @@ def run_backtest(
     sigma = np.exp(X["log_ewma_vol"])
     r_next = Y["ret_fwd"]
     var: dict[float, pd.DataFrame] = {}
+    info_extra: dict = {}
     if "one_sided_var" in c.methods:
         f_ret_cal = return_forecast(X.loc[sp.cal, "log_engine_vol"])
         f_ret_test = return_forecast(X.loc[sp.test, "log_engine_vol"])
+        regimes: dict[str, tuple[np.ndarray, np.ndarray]] = {}
+        if c.early_warning:
+            with timer.stage("early_warning"):
+                regimes, ew_info = _early_warning(m, X, r_next, sp)
+            info_extra["early_warning"] = ew_info
         for a in c.var_alphas:
             df = pd.DataFrame({"r_next": r_next.loc[sp.test]}, index=sp.test)
             for name in VAR_METHODS:
@@ -307,6 +315,14 @@ def run_backtest(
                 df[name] = res.lo
                 if res.alpha_path is not None:
                     alpha_paths[f"{name}_{a:g}"] = res.alpha_path
+            for name, (g_cal, g_test) in regimes.items():
+                floor = a * c.aci_floor_ratio if c.aci_floor_ratio else None
+                meth = RegimeACI(LowerTailResidual(), a, gamma=c.aci_gamma, alpha_floor=floor)
+                meth.fit(replace(f_ret_cal, group=g_cal), r_next.loc[sp.cal].to_numpy())
+                res = run_online(
+                    meth, replace(f_ret_test, group=g_test), df["r_next"].to_numpy(), feedback_lag=1
+                )
+                df[name] = res.lo
             with timer.stage("baselines"):
                 df["gaussian_var"] = gaussian_var(sigma, a).loc[sp.test]
                 df["hist_var"] = historical_var(m.portfolio, a).reindex(sp.test)
@@ -362,6 +378,7 @@ def run_backtest(
         + [n for n in c.methods if n != "one_sided_var"],
         "latency": timer.summary(),
     }
+    info.update(info_extra)
     info["strategy"] = strat_info
     info["risk_measures"] = {
         "es_alpha": c.es_alpha,
@@ -388,6 +405,32 @@ def run_backtest(
 
 
 RISK_METHODS = ("split", "rolling", "aci", "dtaci", "gaussian", "hist", "garch", "gjr", "fhs")
+
+
+def _early_warning(m, X, r_next, sp):
+    """Regimes for regime-conditional ACI VaR: terciles of current volatility (the control) and of
+    a learned stress probability. The model and both sets of thresholds use training and
+    calibration data only."""
+    from sklearn.metrics import roc_auc_score
+
+    sigma = np.exp(X["log_engine_vol"])
+    feats = stress_features(m, sigma).reindex(X.index)
+    label = stress_label(r_next, sigma)
+    model = StressModel().fit(feats.loc[sp.train], label.loc[sp.train])
+    p = pd.Series(model.proba(feats.fillna(0.0)), index=X.index)
+    out = {}
+    for name, score in (("aci_regime_var", X["log_engine_vol"]), ("aci_stress_var", p)):
+        cuts = np.quantile(score.loc[sp.cal], [1 / 3, 2 / 3])
+        out[name] = tuple(
+            regime_groups(score.loc[idx].to_numpy(), cuts) for idx in (sp.cal, sp.test)
+        )
+    info = {"base_rate_train": model.base_rate_, "features": model.columns_}
+    for part, idx in (("cal", sp.cal), ("test", sp.test)):
+        ok = label.loc[idx].notna().to_numpy()
+        y = label.loc[idx].to_numpy()[ok]
+        info[f"auc_{part}"] = float(roc_auc_score(y, p.loc[idx].to_numpy()[ok]))
+        info[f"base_rate_{part}"] = float(y.mean())
+    return out, info
 
 
 def _expected_shortfall(cfg, m, X, r_next, sigma, sp, f_ret_cal, f_ret_test) -> pd.DataFrame:

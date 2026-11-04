@@ -85,7 +85,7 @@ past, so the design is built around preventing it. Models fit on 2010–2017 onl
 are set on 2018–2019; nothing from 2020 on informs any parameter. News counts for a day only if it was
 published before the 4 p.m. New York close. Adaptive methods learn each five-day outcome five days late.
 An end-to-end test changes every price after day *t* and asserts nothing dated on or before *t*
-moves. 181 offline tests cover this, the statistics themselves (coverage over 2,000 simulated trials,
+moves. 196 offline tests cover this, the statistics themselves (coverage over 2,000 simulated trials,
 the conformal quantile against exact arithmetic) and a check that the browser versions of the
 algorithms match Python to the last digit.
 
@@ -110,7 +110,10 @@ algorithms match Python to the last digit.
 - Being calibrated costs capital: 30.6% of portfolio value for the adaptive model against 18.0% for
   RiskMetrics. And filtered historical simulation, a classical model, matched the calibration at
   19.3%. Conformal's real advantage is that it needs no model of the return distribution.
-- Tail breaches still cluster, because an adaptive method learns from a miss only after it happens.
+- Tail breaches still cluster, because an adaptive method learns from a miss only after it happens. I
+  tried to fix that with a learned early-warning signal (AUC 0.62) feeding regime-conditional ACI, and
+  clustering was unchanged. I also tried a small neural network as the point forecaster: it was 6.5%
+  worse than ridge (significant), though coverage held at 94.6–95.3% whichever model sat underneath.
 - Fancier conformal scores never beat the simplest one.
 - I found and fixed four bugs in my own pipeline, each now guarded by a regression test, including
   a metric that silently dropped infinite-VaR days and so flattered the breach rate.
@@ -146,7 +149,7 @@ Astro and Svelte, GitHub Actions and Pages.*
   protocol (embargoes, delayed feedback, an as-of news clock) and benchmarked five classical models with Kupiec,
   Christoffersen, Acerbi–Székely and Basel tests. Added a locally run language model for Federal
   Reserve text, using constrained decoding and schema redesign. Built volatility-targeting
-  strategies, 181 tests, a nightly-refreshed public site, and a bank-style model validation report.
+  strategies, 196 tests, a nightly-refreshed public site, and a bank-style model validation report.
 - **Result.** Over 1,712 unseen trading days the adaptive intervals held a 95% target on 95.0% of
   days (textbook method: 93.3%) and 94.5% through the 2020 crash (88.9%); 99% loss-limit breaches
   were 0.93% versus 1.93% for the industry model. Volatility-targeting on the forecasts cut the worst
@@ -163,7 +166,7 @@ Astro and Svelte, GitHub Actions and Pages.*
   versus 56.4%.
 - Used the forecasts to size positions: volatility targeting halved the worst drawdown (−30.2% to
   −13.6%) and raised Sharpe from 0.75 to 0.97 after trading costs.
-- Engineered for reproducibility: 181 offline tests including look-ahead tests, JS/Python parity checks, an
+- Engineered for reproducibility: 196 offline tests including look-ahead tests, JS/Python parity checks, an
   SR 11-7-style validation report generated from data, and nightly CI that rebuilds and deploys the
   public study.
 - Used a local 3B-parameter LLM with constrained JSON decoding to turn FOMC statements into risk
@@ -189,7 +192,7 @@ metric, or "predicts the market" (it forecasts risk and its error, not returns).
 | *How do you know there's no look-ahead?* | By construction (embargoes, delayed feedback, 4 p.m. news clock) and by test: perturb every price after day *t* and assert nothing earlier changes. |
 | *Did you fine-tune the language model?* | No. Prompting, constrained decoding and schema design. With 139 unlabeled statements, fine-tuning would overfit or memorise outcomes, so I used a synthetic world with known shocks instead. |
 | *Why did text not help?* | About eight statements a year against a VIX that reprices the news in minutes. I showed the pipeline does recover the signal when it exists, so the limit is the data. |
-| *What's the weakest part?* | One portfolio, one crash, free data, and no confidence intervals on the differences between methods. The tail breaches cluster. Section 5 lists the fixes. |
+| *What's the weakest part?* | One portfolio, one crash, free data, and confidence intervals only on the point-model comparison. The tail breaches cluster, and I tested a learned early-warning fix that did not work. Section 5 lists the rest. |
 | *Is it production-ready?* | The validation, monitoring triggers and nightly refresh are. It is not: no intraday data, flat trading costs, one asset class. |
 
 ---
@@ -200,16 +203,18 @@ Ordered by value for effort, each doable in days. Larger research directions are
 [ROADMAP_ADVANCED.md](ROADMAP_ADVANCED.md) and AI-based ones in [AI_EXTENSIONS.md](AI_EXTENSIONS.md).
 
 1. **Put error bars on the comparisons.** Coverage of 95.0% against 93.3% is reported as a point
-   estimate. Add block-bootstrap confidence intervals and a Diebold–Mariano-type test for the
-   differences. This is the most important statistical gap.
+   estimate. The point-model comparison now has Diebold–Mariano tests; the coverage and breach-rate
+   comparisons still need block-bootstrap confidence intervals. This is the most important
+   statistical gap.
 2. **More assets and a second test period.** Add equities in other regions, credit and FX, and a
    pre-2020 test (2008) to see whether the 2020 result generalises.
 3. **Realistic costs and capacity.** Replace the flat 5 bp with a spread-and-impact model, and
    report turnover and break-even costs for the sizing rules.
 4. **Higher-frequency volatility.** Use intraday realised volatility instead of daily returns, which
    sharpens the point forecast and so narrows every interval.
-5. **Fix clustered breaches.** Test a regime-aware widening trigger (Mondrian by VIX level is already
-   implemented) and report whether Christoffersen passes at 99%.
+5. **Fix clustered breaches, properly.** A learned early-warning signal built from eight daily inputs
+   did not do it (see [EARLY_WARNING.md](EARLY_WARNING.md)). Intraday data or option-implied
+   information would be a stronger signal than anything available at the daily close.
 6. **Richer text.** The negative result points at *frequency*, not method. Try Fed speeches, minutes
    and headlines, which arrive far more often than statements.
 7. **Packaging.** A Docker image, a pinned lockfile and a one-command "reproduce the whole

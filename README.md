@@ -6,7 +6,7 @@
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml"><img alt="Site" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml/badge.svg"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
-  <img alt="Tests: 181 offline" src="https://img.shields.io/badge/tests-181%20offline-1baf7a">
+  <img alt="Tests: 196 offline" src="https://img.shields.io/badge/tests-196%20offline-1baf7a">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
 </p>
 
@@ -58,7 +58,7 @@ The stakes depend on who you are:
 | **A risk manager or regulator** | Under the Basel rules, a bank whose 99% VaR model is breached too often is pushed from the *green zone* to *yellow* or *red*, raising its capital charge or forcing a model review. The adaptive model here stayed green on **98.8%** of days; the bell-curve model on **56.4%**. |
 | **A portfolio manager** | Position sizes come from risk forecasts. Sizing on an *honest* risk estimate kept volatility close to its 10% target and gave the shallowest drawdown of every rule tested. |
 | **An ML or data-science practitioner** | This is the general problem of **uncertainty under distribution shift**: a model calibrated on yesterday's data deployed into a world that changes. Markets are a hard, fully public test case, with a crash in the middle of the test set. |
-| **A quant developer** | The whole study is reproducible from one command, guarded by 181 tests including leakage tests, and refreshed nightly by CI. Every number in this README comes from saved runs. |
+| **A quant developer** | The whole study is reproducible from one command, guarded by 196 tests including leakage tests, and refreshed nightly by CI. Every number in this README comes from saved runs. |
 
 > [!NOTE]
 > **The core idea in one sentence.** The textbook method sets the error bar once, from past mistakes, and assumes the future looks like the past. The adaptive method (*Adaptive Conformal Inference*, ACI) keeps score as it goes: each time the range misses it widens a little, each time it holds it narrows a little. In 2020 that feedback loop is what kept the promise.
@@ -215,6 +215,7 @@ Reporting only the wins would make the wins less credible. The full list, with n
 - **Reading the Fed did not improve the forecast.** Adding FOMC statements made the volatility forecast 1.2% worse with the rule-based reader and 2.8% worse with the language model. About eight statements a year is too sparse a signal next to the VIX, which prices the same news within minutes. The production setting is price-only.
 - **A classical model matched the calibration more cheaply** (filtered historical simulation, above).
 - **The adaptive model's tail breaches bunch together.** It learns from a miss only after it happens, so the first days of a shock still get through.
+- **A neural network did not beat ridge, and a learned stress signal did not fix the clustering.** A small neural net had 6.5% higher forecast error than ridge (RMSE 0.456 vs 0.428, significant), and a logistic early-warning signal with AUC 0.62 left clustered 99% breaches unchanged (Christoffersen p 0.008). The conformal layer still held 94.6–95.3% coverage whichever model sat underneath. Details: [point models](docs/POINT_MODELS.md), [early warning](docs/EARLY_WARNING.md).
 - **Fancier conformal scores lost to the simplest one.** Volatility-scaled scores and conformalized quantile regression never beat the plain absolute error (Winkler score 2.162 vs 2.277 and 2.301, lower is better): forecasting *log* volatility already makes errors similar in size in calm and stressed markets.
 - **I found and fixed four bugs in my own pipeline**, each now guarded by a test: a schema that invited the language model to flip signs; an adaptive VaR that could go infinite after a run of misses; metrics that silently dropped those infinite days and flattered the breach rate; and a published algorithm (DtACI) that under-covered when outcomes arrive late.
 
@@ -288,7 +289,7 @@ The text layer uses **qwen2.5:3b**, a 3-billion-parameter open model, run locall
 - **Candour.** Reading the Fed added nothing, a classical model matched the calibration for less capital, and tail breaches still cluster. All of it is reported.
 - **Skills it shows.** Statistical method selection and validation, leakage-proof evaluation, regulatory-style backtesting, local-LLM integration with constrained decoding, test-driven research code, CI and a nightly-deployed public site.
 
-Longer write-ups: [portfolio, CV and interview material](docs/PORTFOLIO.md) · [extending it with AI](docs/AI_EXTENSIONS.md) · [master's-scope research directions](docs/ROADMAP_ADVANCED.md)
+Longer write-ups: [portfolio, CV and interview material](docs/PORTFOLIO.md) · [extending it with AI (two built, both negative)](docs/AI_EXTENSIONS.md) · [master's-scope research directions](docs/ROADMAP_ADVANCED.md)
 
 ---
 
@@ -416,7 +417,7 @@ dashboard/app.py           Streamlit dashboard over reports/*
 site/                      the guided study (Astro + Svelte), its data contract and exported JSON
 scripts/                   README charts · lexicon reference file · Lighthouse check · site status
 docs/                      MODEL_CARD.md · PLAN.md and PLAN_v2.md (design + milestone log) · assets/
-tests/                     181 offline tests + network and live-model tests
+tests/                     196 offline tests + network and live-model tests
 ```
 
 </details>

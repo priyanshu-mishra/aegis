@@ -8,6 +8,7 @@ from aegis.metrics import (
     christoffersen_independence,
     coverage,
     coverage_by_group,
+    diebold_mariano,
     interval_score,
     is_covered,
     kupiec_pof,
@@ -121,3 +122,29 @@ def test_christoffersen_conditional_is_sum():
 
 def test_christoffersen_no_breaches_is_zero():
     assert christoffersen_independence(np.zeros(100, bool)).statistic == 0
+
+
+def test_diebold_mariano_detects_a_better_forecast_and_ignores_a_tie():
+    rng = np.random.default_rng(0)
+    good = rng.normal(0, 1, 2000) ** 2
+    worse = good + 0.3 + rng.normal(0, 0.2, 2000)
+    res = diebold_mariano(good, worse, lag=4)
+    assert res.statistic < 0 and res.p_value < 1e-6
+    same = diebold_mariano(good, good + rng.normal(0, 0.2, 2000), lag=4)
+    assert same.p_value > 0.01
+    assert diebold_mariano(good, good).p_value == 1.0  # identical forecasts
+
+
+def test_diebold_mariano_matches_hand_calculation_without_lags():
+    a, b = np.array([1.0, 2.0, 3.0, 4.0]), np.array([1.5, 2.0, 2.0, 3.0])
+    d = a - b
+    expected = d.mean() / np.sqrt(np.var(d) / len(d))  # lag 0: the plain t-type statistic
+    assert diebold_mariano(a, b).statistic == pytest.approx(expected)
+
+
+def test_diebold_mariano_long_run_variance_grows_with_positive_autocorrelation():
+    rng = np.random.default_rng(1)
+    e = rng.normal(size=3000)
+    d = np.convolve(e, np.ones(5) / 5, mode="same") + 0.05  # a moving average is autocorrelated
+    naive, robust = diebold_mariano(d, 0 * d, lag=0), diebold_mariano(d, 0 * d, lag=8)
+    assert abs(robust.statistic) < abs(naive.statistic)

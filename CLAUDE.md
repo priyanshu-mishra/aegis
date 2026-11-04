@@ -28,6 +28,8 @@ python main.py sensitivity -c configs/default.yaml     # α, γ, window, λ grid
 python main.py export-site -c configs/default.yaml     # writes site/public/data/*.json
 python main.py model-card -c configs/default.yaml      # writes docs/MODEL_CARD.md from site/public/data
 python scripts/make_readme_assets.py                   # regenerates README SVGs from saved runs
+python scripts/compare_point_models.py                 # writes docs/POINT_MODELS.md (4 point models, same walk-forward)
+python scripts/early_warning_study.py                  # writes docs/EARLY_WARNING.md (regime-conditional ACI VaR)
 ```
 
 Config values can be overridden with `--set conformal.alpha=0.1` (repeatable). Configs are pydantic-validated in `src/aegis/config.py`, so a misspelled key fails.
@@ -48,6 +50,7 @@ npm run build
 - `features.py`: HAR, EWMA and VIX features, plus as-of-safe text signals.
 - `risk_engine.py`: EWMA covariance and the point model (ridge by default).
 - `conformal_ncm.py`: non-conformity scores and the split, rolling, ACI, DtACI and Mondrian methods, run online by `run_online` with a feedback lag.
+- `early_warning.py` (opt-in, `conformal.early_warning`): a logistic stress signal that sorts days into regimes for `RegimeACI` (ACI run per regime) in the VaR layer. Off by default; both extensions so far were negative results.
 - Baselines and tail measures: `baselines.py` (Gaussian, historical simulation, GARCH, GJR, FHS) and `risk_measures.py` (ES, Acerbi–Székely Z2, Basel traffic light, capital, Euler contributions).
 - `portfolio.py`: sizing strategies.
 - `metrics.py`: coverage, Winkler, Kupiec and Christoffersen.

@@ -14,7 +14,9 @@ from dataclasses import dataclass
 
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import VotingRegressor
 from sklearn.linear_model import LinearRegression, QuantileRegressor, Ridge, RidgeCV
+from sklearn.neural_network import MLPRegressor
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
@@ -149,6 +151,26 @@ def _ridge(alpha: float | None = None, cv=None):
     return make_pipeline(StandardScaler(), reg)
 
 
+def _mlp(seed: int, members: int = 5):
+    """A small neural net: standardised inputs, one hidden layer of 16 tanh units, an L2 penalty.
+
+    Five nets with different initialisations are averaged, which steadies a model trained on only
+    about two thousand noisy rows. Early stopping is off: scikit-learn's version holds out a random
+    validation split, which would mix time periods.
+    """
+    nets = [
+        (
+            f"m{i}",
+            MLPRegressor(
+                hidden_layer_sizes=(16,), activation="tanh", alpha=1.0,
+                max_iter=800, random_state=seed + i,
+            ),
+        )
+        for i in range(members)
+    ]  # fmt: skip
+    return make_pipeline(StandardScaler(), VotingRegressor(nets))
+
+
 def _make_model(kind: str, seed: int, quantile: float | None = None):
     if kind == "lightgbm":
         import lightgbm as lgb
@@ -160,12 +182,14 @@ def _make_model(kind: str, seed: int, quantile: float | None = None):
         if quantile is not None:
             return lgb.LGBMRegressor(objective="quantile", alpha=quantile, **params)
         return lgb.LGBMRegressor(**params)
-    if quantile is not None:  # linear quantile regression for har_ols / ridge
+    if quantile is not None:  # linear quantile regression for har_ols / ridge / mlp
         return QuantileRegressor(quantile=quantile, alpha=0.0, solver="highs")
     if kind == "har_ols":
         return LinearRegression()
     if kind == "ridge":
         return _ridge(alpha=1.0)
+    if kind == "mlp":
+        return _mlp(seed)
     raise ValueError(f"unknown point model {kind!r}")
 
 

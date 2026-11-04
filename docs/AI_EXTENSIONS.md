@@ -1,8 +1,10 @@
 # Extending Aegis with AI: what changes, what to build, and what could go wrong
 
-This is a proposal to choose from, not a feature list. Each idea is tied to a weakness Aegis has
-already measured, so every extension has a hypothesis that the existing backtest can confirm or kill.
-Pick the issues you care about and I will build those first.
+This started as a proposal; **A and B have now been built and tested, and both came out negative**
+(results in each section below, and in [POINT_MODELS.md](POINT_MODELS.md) and
+[EARLY_WARNING.md](EARLY_WARNING.md)). Each idea is tied to a weakness Aegis has already measured,
+so every extension has a hypothesis that the existing backtest can confirm or kill. C to F are still
+proposals.
 
 ## Where Aegis stands
 
@@ -12,7 +14,7 @@ evidence so far is a caution against assuming "more AI" helps:
 
 | Finding | Number | What it implies |
 |---|---|---|
-| A flexible learner lost to a simple one | log-vol RMSE 2020–2026: ridge **0.439**, HAR **0.446**, LightGBM **0.467** | With about 2,000 noisy daily observations, extra capacity overfits. |
+| A flexible learner lost to a simple one | log-vol RMSE 2020–2026: ridge **0.428**, HAR **0.446**, neural net **0.456**, LightGBM **0.471** | With about 2,000 noisy daily observations, extra capacity overfits (extension A, below). |
 | Text added nothing on real data | forecast **1.2%** worse (rule-based), **2.8%** worse (language model) | The limit is the data (about 8 statements a year), not the reader. |
 | Tail breaches cluster | Christoffersen p = 0.008 at 99% for ACI | Adaptation is reactive: the first days of a shock get through. |
 | Calibration costs capital | 30.6% vs 18.0% for RiskMetrics; FHS matched at 19.3% | A cheaper, tighter interval would be worth real money. |
@@ -73,6 +75,28 @@ already lost.
 That contaminates the test the same way an LLM does. Prefer models trained on data that ends before 2020,
 or treat the result as an upper bound.
 
+**Result (built, `risk.point_model: mlp`).** I added a small neural network as a fourth point model:
+five networks averaged, one hidden layer of 16 tanh units, an L2 penalty, standardised inputs. I fixed
+that architecture before running it and did not tune it on the test period. Same walk-forward, same
+conformal layer; only the point model changes. Pretrained foundation models were not tried (see the
+hazard above, and they need PyTorch and a weights download).
+
+| Point model | RMSE | Diebold–Mariano p vs ridge | ACI coverage | ACI width | ACI Winkler |
+|---|---|---|---|---|---|
+| Ridge (production) | 0.428 | - | 95.0% | 1.738 | 2.211 |
+| HAR regression | 0.446 | 0.002 | 95.3% | 1.874 | 2.335 |
+| Neural net | 0.456 | <0.001 | 94.6% | 1.831 | 2.318 |
+| LightGBM | 0.471 | <0.001 | 94.9% | 2.057 | 2.454 |
+
+Two things hold up. **The conformal layer did its job whichever model sat underneath**: coverage
+stayed between 94.6% and 95.3% for all four. And **interval width follows point error**: for split
+conformal, width is in exactly the same order as RMSE (ridge, HAR, neural net, LightGBM), and for ACI
+nearly so (the neural net and HAR swap). That is the mechanism the idea rested on: a better forecaster
+would buy tighter intervals. But the better forecaster did not exist here. Ridge is
+significantly best, so the hypothesis "a learned model tightens the intervals" is rejected on this
+data. With about 2,000 noisy training days, the simple model wins; the guarantee, not the model,
+carries the result. Full table: [POINT_MODELS.md](POINT_MODELS.md).
+
 ### B. A learned early-warning signal for stress
 
 *What.* A classifier on cross-asset signals (VIX term structure, rolling correlations, credit spreads
@@ -88,6 +112,28 @@ event-study table answers it.
 
 *Hazard.* Early-warning classifiers are notorious for false alarms and for fitting the last crisis.
 There are only a handful of independent stress episodes, so the evidence will be thin. State that.
+
+**Result (built, `conformal.early_warning: true`).** A logistic regression, fitted on the training
+years only, predicts from eight as-of-safe inputs whether any of the next five days breaches a
+Gaussian 99% VaR. It has modest skill: **AUC 0.68 on the calibration years, 0.62 on the test years**.
+Days are sorted into three regimes by that probability and a new `RegimeACI` runs ACI separately in
+each. A control sorts by current volatility instead, so the learned signal has to beat a plain label.
+
+| 99% VaR | Breach rate | Christoffersen p | Breaches in the first 5 days of 15 episodes | Mean VaR |
+|---|---|---|---|---|
+| ACI, one regime | 0.93% | 0.008 | 10 | 3.14% |
+| ACI by current volatility (control) | 0.99% | 0.010 | 10 | 2.71% |
+| ACI by learned stress probability | 0.93% | 0.008 | 9 | 2.82% |
+
+The problem is real: 10 breaches in the 75 days that start a stress episode is about 13%, against a
+1% target. But **the learned signal did not fix it**. Clustering is unchanged (Christoffersen 0.008),
+episode breaches fall from 10 to 9, and at 95% the learned version clusters *more* than one regime
+(Christoffersen 0.019 against 0.072). Fifteen episodes is thin evidence, so one breach is noise, but
+nothing here supports the claim. A signal with AUC 0.62 simply cannot see the shock early enough.
+
+One useful side finding, which comes from the regime split and not from the learning: regime-conditional
+ACI holds the breach rate while shrinking the average 99% VaR by 10 to 14%, and the plain volatility
+control does at least as well as the learned signal. Full tables: [EARLY_WARNING.md](EARLY_WARNING.md).
 
 ### C. Text that arrives often enough to matter
 
@@ -142,16 +188,17 @@ the same spirit as the existing staleness test.
 *Why.* Documentation is a large share of real model-risk work. A drafted, verified, human-approved report
 is a realistic, visible use of AI in finance, and the guard against invented figures is built in.
 
-## What I would build first
+## What I would build next
 
-**A then B**, because they attack the two weaknesses that matter most to a risk reader (interval
-width and clustered breaches) and share the existing test harness. **D** is the best story if the
-goal is to show fine-tuning skills, and **F** is the fastest, lowest-risk addition. **C** is the most
-interesting research question but needs a data source and the most care.
+A and B are done (negative). **D** is the best story if the goal is to show fine-tuning skills, and
+**F** is the fastest, lowest-risk addition. **C** is the most interesting research question but needs a
+data source and the most care.
 
-If I had to bet on outcomes: A will probably not beat ridge by much (and a negative result is
-publishable on this site, like the others); B has the best chance of a visible improvement; D should
-work on synthetic data and the real-data transfer is the open question.
+Both bets on A and B came in negative, which is itself informative: on about 2,000 daily observations
+neither a flexible model nor a learned stress signal beat the simple version. That makes the remaining
+ideas more interesting, because they add *information* (C: more text) or *speed and control* (D, E, F)
+instead of more model capacity. D should work on synthetic data, and the real-data transfer is the open
+question.
 
 ## Questions to narrow this down
 

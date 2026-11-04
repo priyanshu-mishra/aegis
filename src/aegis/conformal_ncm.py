@@ -465,6 +465,68 @@ class MondrianConformal(ConformalMethod):
         return self.ncm.interval(f, q)
 
 
+class RegimeACI(ConformalMethod):
+    """ACI run separately inside each regime: a Mondrian version of adaptive conformal inference.
+
+    Calibration scores are split by ``Forecast.group``; each regime gets its own score buffer and
+    its own level α_t, updated by eq. (3) only on outcomes from that regime. Within a regime the
+    ACI long-run bound (4) applies, so coverage is controlled in calm and stressed periods
+    separately. The regime label of a day must be known when the interval is issued, which is
+    the point: a signal that anticipates stress lets the stressed regime start from a wider
+    threshold instead of waiting for misses.
+
+    A pooled ACI is kept as the fallback for a regime that was empty in calibration.
+    """
+
+    def __init__(
+        self,
+        ncm: NonConformity,
+        alpha: float,
+        gamma: float = 0.005,
+        window: int | None = None,
+        alpha_floor: float | None = None,
+    ) -> None:
+        super().__init__(ncm, alpha)
+        self._kw = {"gamma": gamma, "window": window, "alpha_floor": alpha_floor}
+
+    def fit(self, f_cal, y_cal):
+        if f_cal.group is None:
+            raise ValueError("RegimeACI needs Forecast.group")
+        y_cal = np.asarray(y_cal, dtype=float)
+        self._members = {
+            g: AdaptiveConformal(self.ncm, self.alpha, **self._kw).fit(
+                f_cal[f_cal.group == g], y_cal[f_cal.group == g]
+            )
+            for g in np.unique(f_cal.group)
+        }
+        self._pooled = AdaptiveConformal(self.ncm, self.alpha, **self._kw).fit(f_cal, y_cal)
+        return self
+
+    def _member(self, g: float) -> AdaptiveConformal:
+        return self._members.get(g, self._pooled)
+
+    @property
+    def q(self):
+        return self._pooled.q  # pooled threshold (used only by tail_mean)
+
+    @property
+    def scores(self):
+        return self._pooled.scores
+
+    def predict(self, f):
+        self.ncm.check(f)
+        if f.group is None:
+            raise ValueError("RegimeACI needs Forecast.group")
+        q = np.array([self._member(g).q for g in f.group])
+        return self.ncm.interval(f, q)
+
+    def update(self, f, y, covered):
+        y, covered = np.atleast_1d(y), np.atleast_1d(covered)
+        for i, g in enumerate(f.group):
+            self._member(g).update(f[i : i + 1], y[i : i + 1], covered[i : i + 1])
+        self._pooled.update(f, y, covered)
+
+
 def regime_groups(values: np.ndarray, thresholds: np.ndarray) -> np.ndarray:
     """Group label 0..len(thresholds) for each value (e.g. terciles from calibration data)."""
     return np.digitize(np.asarray(values, float), thresholds).astype(float)

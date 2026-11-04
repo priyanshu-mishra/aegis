@@ -168,7 +168,7 @@ def test_purged_kfold_respects_gap():
         assert np.min(np.abs(tr[:, None] - te[None, :])) > 5
 
 
-@pytest.mark.parametrize("kind", ["har_ols", "ridge", "lightgbm"])
+@pytest.mark.parametrize("kind", ["har_ols", "ridge", "lightgbm", "mlp"])
 def test_vol_forecaster_beats_naive(kind, xy):
     X, Y = xy
     y = Y["log_vol_fwd"]

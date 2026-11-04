@@ -123,3 +123,28 @@ def christoffersen_conditional(breaches: np.ndarray, alpha: float) -> TestResult
     """Conditional coverage: LR_cc = LR_pof + LR_ind ~ χ²(2). Joint test of rate and clustering."""
     lr = kupiec_pof(breaches, alpha).statistic + christoffersen_independence(breaches).statistic
     return TestResult(lr, float(stats.chi2.sf(lr, 2)), 2)
+
+
+# --------------------------------------------------------------------------------------------
+# Comparing forecasts
+# --------------------------------------------------------------------------------------------
+
+
+def diebold_mariano(loss_a: np.ndarray, loss_b: np.ndarray, lag: int = 0) -> TestResult:
+    """Diebold–Mariano (1995) test that two forecasts have equal expected loss.
+
+    With the loss differential d_t = loss_a − loss_b, the statistic is d̄ / sqrt(V̂ / n), where V̂ is
+    the Newey–West (Bartlett) long-run variance of d_t using ``lag`` autocovariances. Use
+    ``lag`` ≥ h − 1 for h-day-ahead forecasts, whose errors overlap. A negative statistic means
+    forecast A has the lower loss. The p-value is two-sided, from the normal distribution.
+    """
+    d = np.asarray(loss_a, dtype=float) - np.asarray(loss_b, dtype=float)
+    n = d.size
+    dc = d - d.mean()
+    lrv = float(dc @ dc) / n
+    for k in range(1, lag + 1):
+        lrv += 2.0 * (1.0 - k / (lag + 1)) * float(dc[k:] @ dc[:-k]) / n
+    if lrv <= 0:
+        return TestResult(0.0, 1.0, n - 1)
+    stat = float(d.mean() / np.sqrt(lrv / n))
+    return TestResult(stat, float(2 * stats.norm.sf(abs(stat))), n - 1)
