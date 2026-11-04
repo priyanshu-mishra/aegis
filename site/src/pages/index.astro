@@ -18,6 +18,7 @@ import RiskFactors from "../chapters/RiskFactors.astro";
 import Checks from "../chapters/Checks.astro";
 import { chapters } from "../lib/chapters";
 import { annual, formatDate, load, pct, slice, type Frame } from "../lib/data";
+import { testCounts } from "../lib/repo";
 
 const meta = load("meta");
 const metrics = load("metrics");
@@ -45,6 +46,7 @@ const months = [...new Set(y2020.dates.map((d) => d.slice(0, 7)))].map((ym) => {
 const monthName = (ym: string) =>
   new Date(ym + "-01T00:00:00Z").toLocaleDateString("en-GB", { month: "long", timeZone: "UTC" });
 
+const tests = testCounts();
 const rmBreach = v99.gaussian_var.breach_rate;
 const aciBreach = v99.aci_var.breach_rate;
 const wild = Math.max(...y2020.series.y.map((x) => annual(x) ?? 0));
@@ -119,11 +121,46 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
           </tbody>
         </table>
 
-        <p class="risk">
-          <span class="sc">Risk factors.</span> Not everything worked. News text added nothing on real
-          data, a simpler model matched the calibration with less capital set aside, and I found and
-          fixed four bugs in my own pipeline. Each is disclosed in <a href="#risk-factors">chapter 10</a>.
-        </p>
+        <dl class="about">
+          <div>
+            <dt>The problem</dt>
+            <dd>
+              Funds, trading desks and banks size positions, set loss limits and hold capital against a
+              risk forecast. A forecast is one number; what decides whether it can be trusted is how
+              wrong it might be. Over {firstYear}–{lastYear} the industry-standard model broke its 99%
+              loss limit on {pct(rmBreach, 2)} of days, against the 1% it promised.
+            </dd>
+          </div>
+          <div>
+            <dt>What I built</dt>
+            <dd>
+              An end-to-end market-risk system for a four-fund portfolio: volatility and Value-at-Risk
+              forecasts, adaptive error bars around them, nine VaR methods compared head to head (four
+              conformal, five classical), regulatory-style backtests, and position-sizing rules that act
+              on the forecasts. It rebuilds and redeploys itself every weeknight from fresh market data.
+            </dd>
+          </div>
+          <div>
+            <dt>What it shows</dt>
+            <dd>
+              A statistical method chosen for its guarantee; an evaluation built so it cannot flatter the
+              method ({tests.leakage} of {tests.all} test functions guard against look-ahead); and plain reporting of
+              where it lost, including bugs I found in my own pipeline (<a href="#risk-factors">chapter 10</a>).
+            </dd>
+          </div>
+          <div>
+            <dt>Where to start</dt>
+            <dd>
+              <a href="#why">Chapter 1</a> makes the case for why this matters; <a href="#checks">chapter 11</a>
+              shows how it was checked. For model-risk readers, the same evidence is written up as a
+              <a href="https://github.com/priyanshu-mishra/aegis/blob/main/docs/MODEL_CARD.md">validation report</a>.
+            </dd>
+          </div>
+          <div>
+            <dt>Built with</dt>
+            <dd>Python, scikit-learn, conformal prediction, a local language model, Astro and Svelte, GitHub Actions.</dd>
+          </div>
+        </dl>
 
         <p class="byline">
           Priyanshu Mishra ·
@@ -283,14 +320,28 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
     font-size: 1.0625rem;
   }
 
-  .risk {
+  .about {
     margin: var(--s2) 0 0;
+    border-top: 1px solid var(--rule-strong);
+  }
+  .about > div {
+    display: grid;
+    grid-template-columns: 6.25rem minmax(0, 1fr);
+    column-gap: var(--s1);
+    padding: var(--s0) 0;
+    border-bottom: 1px solid var(--rule);
     font-size: 1rem;
+    line-height: 1.5;
     color: var(--ink-2);
   }
-  .risk .sc {
-    color: var(--ink);
+  .about dt {
+    font-variant-caps: all-small-caps;
+    letter-spacing: 0.08em;
     font-weight: 600;
+    color: var(--ink);
+  }
+  .about dd {
+    margin: 0;
   }
   .byline {
     margin: var(--s3) 0 0;
@@ -318,6 +369,11 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
     .cover-exhibit {
       position: static;
       padding-top: 0;
+    }
+  }
+  @media (max-width: 600px) {
+    .about > div {
+      grid-template-columns: minmax(0, 1fr);
     }
   }
 </style>
