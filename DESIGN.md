@@ -136,6 +136,9 @@ A monochrome ink-on-paper palette with one reserved red.
 - **Band Tint** (ink at 12%): the conformal interval band. The uncertainty range is ink, thinned, never a hue.
 - **Ghost Grey** (#b5b5b5): methods not in focus. They recede, they never vanish.
 
+### Dark mode
+The same prospectus on a dark stock, chosen by the system setting or the head's Dark/Light toggle (saved as `data-theme`, applied before first paint). Every colour is a token, so only `tokens.css` changes: Paper #141414, Ink #ececec, Secondary Ink #c2c2c2 (10.3:1), Caption Ink #9b9b9b (6.6:1), Hairline #3a3a3a, Strong Rule #ececec, Ghost Grey #707070, Band Tint ink at 16%, and Herring Red lifted to #ff6a5c (6.6:1). The Red Herring Rule holds in both themes. A 3px Ink progress line runs across the top of the page.
+
 ### Named Rules
 **The Red Herring Rule.** Red appears only on the preliminary legend, on misses, and on breaches or rejected models. If a red mark does not signal a warning or a failure, it is wrong.
 
@@ -197,7 +200,7 @@ Circles appear only as data marks in charts (miss rings, breach dots).
 ## Components
 
 ### Running Head (Navigation)
-A prospectus running head: sticky, 48px, paper with a 1px ink base rule. Left, the AEGIS mark in tracked small caps; centre, the chapter list in 13px Secondary Ink with Caption Ink numbers, unbuilt chapters collapsed into one "in preparation" entry; right, a Code link. Hover darkens to Ink and underlines. On narrow screens the list scrolls horizontally with no scrollbar.
+A prospectus running head: sticky, 48px, paper with a 1px ink base rule. Left, the AEGIS mark in tracked small caps; centre, the chapter list in 13px Secondary Ink with Caption Ink numbers, unbuilt chapters collapsed into one "in preparation" entry; right, a Dark/Light toggle (a ruled text button, square corners) and a Code link. Hover darkens to Ink and underlines. On narrow screens the list scrolls horizontally with no scrollbar.
 
 ### Red-Herring Legend
 Fixed down the left margin in vertical small caps, red on paper, with a 1.5px red inner rule. It states the figures are preliminary, the data-through date, and whether the latest refresh failed. Below 960px it becomes a horizontal band above the running head.

@@ -2,6 +2,7 @@
 import Base from "../layouts/Base.astro";
 import RedHerring from "../components/RedHerring.astro";
 import RunningHead from "../components/RunningHead.astro";
+import ProgressBar from "../components/ProgressBar.astro";
 import Exhibit from "../components/Exhibit.astro";
 import IntervalChart from "../components/IntervalChart.astro";
 import Why from "../chapters/Why.astro";
@@ -76,6 +77,7 @@ const asOf = formatDate(status.data_last_day ?? meta.data.last_day);
   description="A walk-forward study of conformal prediction for portfolio risk, 2020–2026, by Priyanshu Mishra."
 >
   <RedHerring asOf={asOf} fresh={status.fresh !== false} />
+  <ProgressBar />
   <RunningHead chapters={chapters} />
 
   <main>

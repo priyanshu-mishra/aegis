@@ -67,7 +67,7 @@ npm run build
 - `docs/MODEL_CARD.md` is rendered by `src/aegis/model_card.py`. `tests/test_model_card.py` fails if it differs from a fresh render of the committed data, so rerun `model-card` after committing new exported data.
 - `site/src/lib/repo.ts` counts test functions in `tests/` at build time for the site's copy.
 
-**Site structure.** Astro 5 + Svelte 5 islands (`site/src/islands`, `client:visible`). Charts are build-time SVG drawn with d3-scale and d3-shape (`site/src/lib/chart.ts`), each rendered twice (wide and narrow, toggled at 600px). One page, `pages/index.astro`, composes the chapters in `site/src/chapters/`; the chapter list lives in `lib/chapters.ts`. Visual rules ("The Prospectus": paper and ink, a single red for misses and breaches, lettered exhibits each with a table view) are documented in `DESIGN.md`; product and audience context is in `PRODUCT.md`.
+**Site structure.** Astro 5 + Svelte 5 islands (`site/src/islands`, `client:visible`). Charts are build-time SVG drawn with d3-scale and d3-shape (`site/src/lib/chart.ts`), each rendered twice (wide and narrow, toggled at 600px). One page, `pages/index.astro`, composes the chapters in `site/src/chapters/`; the chapter list lives in `lib/chapters.ts`. Colours are all tokens in `styles/tokens.css`; dark mode is a second token set under `prefers-color-scheme` and `[data-theme]`, set before paint by an inline script in `Base.astro` and flipped by the toggle in `RunningHead.astro`; `ProgressBar.astro` draws the reading-progress line. Visual rules ("The Prospectus": paper and ink, a single red for misses and breaches, lettered exhibits each with a table view) are documented in `DESIGN.md`; product and audience context is in `PRODUCT.md`.
 
 ## CI and deployment
 

@@ -42,3 +42,33 @@
   --herring-margin: 3.25rem; /* width of the red legend column */
   --head-h: 3rem; /* running head height */
 }
+
+/* Dark: the same prospectus printed on a dark stock. Chosen by the visitor's system, or by the toggle (data-theme). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #141414;
+    --ink: #ececec;
+    --ink-2: #c2c2c2; /* 10.3:1 on paper */
+    --ink-3: #9b9b9b; /* 6.6:1 on paper */
+    --rule: #3a3a3a;
+    --rule-strong: #ececec;
+    --wash: #262624;
+    --herring: #ff6a5c; /* 6.6:1 on paper */
+    --band: rgba(236, 236, 236, 0.16);
+    --ghost: #707070;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #141414;
+  --ink: #ececec;
+  --ink-2: #c2c2c2;
+  --ink-3: #9b9b9b;
+  --rule: #3a3a3a;
+  --rule-strong: #ececec;
+  --wash: #262624;
+  --herring: #ff6a5c;
+  --band: rgba(236, 236, 236, 0.16);
+  --ghost: #707070;
+}

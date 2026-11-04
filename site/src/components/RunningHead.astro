@@ -39,7 +39,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
       )}
     </ol>
   </nav>
-  <a class="out" href="https://github.com/priyanshu-mishra/aegis">Code</a>
+  <div class="tools">
+    <button class="theme" type="button" hidden aria-pressed="false">Dark</button>
+    <a class="out" href="https://github.com/priyanshu-mishra/aegis">Code</a>
+  </div>
 </header>
 
 <style>
@@ -103,6 +106,33 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
   .out {
     color: var(--ink-2);
   }
+  .tools {
+    display: flex;
+    align-items: center;
+    gap: var(--s1);
+  }
+  .theme {
+    font: inherit;
+    color: var(--ink-2);
+    background: none;
+    border: 1px solid var(--rule-strong);
+    padding: 0.25rem 0.625rem;
+    min-height: 1.75rem;
+    cursor: pointer;
+  }
+  .theme:hover {
+    color: var(--ink);
+    text-decoration: underline;
+  }
+  .theme:focus-visible {
+    outline: 2px solid var(--ink);
+    outline-offset: 2px;
+  }
+  @media print {
+    .theme {
+      display: none;
+    }
+  }
   @media (max-width: 960px) {
     .head {
       padding: 0 var(--s1);
@@ -110,3 +140,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, "");
     }
   }
 </style>
+
+<script>
+  // Two states, "Dark" and "Light". With no saved choice the page follows the system until the first click.
+  const btn = document.querySelector<HTMLButtonElement>(".theme");
+  const root = document.documentElement;
+  const dark = matchMedia("(prefers-color-scheme: dark)");
+  const isDark = () => (root.dataset.theme ? root.dataset.theme === "dark" : dark.matches);
+  const sync = () => {
+    if (!btn) return;
+    btn.textContent = isDark() ? "Light" : "Dark";
+    btn.setAttribute("aria-pressed", String(isDark()));
+    btn.setAttribute("aria-label", isDark() ? "Switch to light mode" : "Switch to dark mode");
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", isDark() ? "#141414" : "#ffffff");
+  };
+  if (btn) {
+    btn.hidden = false;
+    btn.addEventListener("click", () => {
+      const next = isDark() ? "light" : "dark";
+      root.dataset.theme = next;
+      try {
+        localStorage.setItem("aegis-theme", next);
+      } catch {}
+      sync();
+    });
+    dark.addEventListener("change", sync);
+    sync();
+  }
+</script>

@@ -280,6 +280,18 @@ The text layer uses **qwen2.5:3b**, a 3-billion-parameter open model, run locall
 
 ---
 
+## What this project demonstrates
+
+- **Thesis.** A risk forecast is only as useful as the claim it makes about its own error, and that claim must be audited, not assumed. Conformal prediction supplies a claim with a stated hit rate and no assumption about how returns are distributed.
+- **Method.** Fit on 2010–2017, calibrate on 2018–2019, walk forward through 2020–2026 one day at a time, with each outcome revealed only when it would really be known. Everything is compared against five classical models.
+- **Evidence.** Adaptive intervals held a 95% promise on 95.0% of unseen days (textbook: 93.3%) and 94.5% through 2020 (88.9%). A 99% loss limit was breached on 0.93% of days (RiskMetrics: 1.93%). Sizing on the forecasts halved the worst fall.
+- **Candour.** Reading the Fed added nothing, a classical model matched the calibration for less capital, and tail breaches still cluster. All of it is reported.
+- **Skills it shows.** Statistical method selection and validation, leakage-proof evaluation, regulatory-style backtesting, local-LLM integration with constrained decoding, test-driven research code, CI and a nightly-deployed public site.
+
+Longer write-ups: [portfolio, CV and interview material](docs/PORTFOLIO.md) · [extending it with AI](docs/AI_EXTENSIONS.md) · [master's-scope research directions](docs/ROADMAP_ADVANCED.md)
+
+---
+
 ## Quickstart
 
 ```bash
