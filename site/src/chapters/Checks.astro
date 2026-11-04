@@ -38,7 +38,7 @@ const checks = [
   },
   {
     what: "Speed",
-    how: `On a laptop, scoring one day takes ${bench.score_one_day.p50_ms.toFixed(2)} ms and the full walk-forward backtest ${bench.backtest_wall_s.toFixed(1)} s, so the method is cheap enough to run intraday.`,
+    how: `On a laptop, scoring one day takes ${bench.score_one_day.p50_ms.toFixed(2)} ms and the full walk-forward backtest of a synthetic market (${bench.test_days.toLocaleString("en-US")} test days, every method and baseline) ${bench.backtest_wall_s.toFixed(1)} s, so the method is cheap enough to run intraday.`,
   },
 ];
 ---

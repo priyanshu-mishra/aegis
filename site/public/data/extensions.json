@@ -1,0 +1,167 @@
+{
+ "point_models": {
+  "test_days": 1712,
+  "first_day": "2020-01-02",
+  "last_day": "2026-10-23",
+  "level": 0.95,
+  "rows": [
+   {
+    "kind": "har_ols",
+    "label": "HAR regression",
+    "rmse": 0.4459027899986015,
+    "dm_p": 0.001973589637969071,
+    "split_absolute": {
+     "coverage": 0.9310747663551402,
+     "width": 1.623255012837154,
+     "winkler": 2.3077097193143796
+    },
+    "aci": {
+     "coverage": 0.9526869158878505,
+     "width": 1.8737503547724625,
+     "winkler": 2.3352884214482033
+    }
+   },
+   {
+    "kind": "ridge",
+    "label": "Ridge (production)",
+    "rmse": 0.4279017399281074,
+    "dm_p": null,
+    "split_absolute": {
+     "coverage": 0.9334112149532711,
+     "width": 1.595569248127211,
+     "winkler": 2.1615777872550157
+    },
+    "aci": {
+     "coverage": 0.9503504672897196,
+     "width": 1.738461722786756,
+     "winkler": 2.2114158416569385
+    }
+   },
+   {
+    "kind": "lightgbm",
+    "label": "LightGBM",
+    "rmse": 0.4712324762249489,
+    "dm_p": 1.0799341790111605e-05,
+    "split_absolute": {
+     "coverage": 0.9240654205607477,
+     "width": 1.7102998203283433,
+     "winkler": 2.4657367943387274
+    },
+    "aci": {
+     "coverage": 0.9491822429906542,
+     "width": 2.057370912783117,
+     "winkler": 2.453905664643703
+    }
+   },
+   {
+    "kind": "mlp",
+    "label": "Neural net (5 averaged)",
+    "rmse": 0.45565261672952806,
+    "dm_p": 0.00046675919395097303,
+    "split_absolute": {
+     "coverage": 0.9228971962616822,
+     "width": 1.6408786745802801,
+     "winkler": 2.3011413886346497
+    },
+    "aci": {
+     "coverage": 0.9462616822429907,
+     "width": 1.8313925771319917,
+     "winkler": 2.3182338177070774
+    }
+   }
+  ]
+ },
+ "early_warning": {
+  "auc_cal": 0.681765169424744,
+  "auc_test": 0.6194385403310702,
+  "base_rate_train": 0.14035989717223651,
+  "episodes": 15,
+  "episode_days": 75,
+  "levels": {
+   "0.05": [
+    {
+     "method": "aci_var",
+     "label": "ACI, one regime",
+     "breach_rate": 0.04906542056074766,
+     "kupiec_p": 0.858757946843738,
+     "christoffersen_p": 0.07176450409571751,
+     "clustered_share": 0.21428571428571427,
+     "episode_breaches": 16,
+     "mean_var": 0.013682893018147105
+    },
+    {
+     "method": "aci_regime_var",
+     "label": "ACI by current volatility (control)",
+     "breach_rate": 0.05023364485981308,
+     "kupiec_p": 0.9646459427653147,
+     "christoffersen_p": 0.0002747715463769065,
+     "clustered_share": 0.3023255813953488,
+     "episode_breaches": 16,
+     "mean_var": 0.01383771202579983
+    },
+    {
+     "method": "aci_stress_var",
+     "label": "ACI by learned stress probability",
+     "breach_rate": 0.04789719626168224,
+     "kupiec_p": 0.6877492433808774,
+     "christoffersen_p": 0.019404197811162437,
+     "clustered_share": 0.25609756097560976,
+     "episode_breaches": 14,
+     "mean_var": 0.014121527964332536
+    },
+    {
+     "method": "fhs_var",
+     "label": "Filtered historical simulation",
+     "breach_rate": 0.052570093457943924,
+     "kupiec_p": 0.6283506558912602,
+     "christoffersen_p": 0.0007211598990649464,
+     "clustered_share": 0.3,
+     "episode_breaches": 18,
+     "mean_var": 0.013046390866298207
+    }
+   ],
+   "0.01": [
+    {
+     "method": "aci_var",
+     "label": "ACI, one regime",
+     "breach_rate": 0.009345794392523364,
+     "kupiec_p": 0.7832628889911181,
+     "christoffersen_p": 0.007612730857997238,
+     "clustered_share": 0.125,
+     "episode_breaches": 10,
+     "mean_var": 0.0314347400013974
+    },
+    {
+     "method": "aci_regime_var",
+     "label": "ACI by current volatility (control)",
+     "breach_rate": 0.009929906542056074,
+     "kupiec_p": 0.9767194301880165,
+     "christoffersen_p": 0.009972878588666946,
+     "clustered_share": 0.11764705882352941,
+     "episode_breaches": 10,
+     "mean_var": 0.02713065361468561
+    },
+    {
+     "method": "aci_stress_var",
+     "label": "ACI by learned stress probability",
+     "breach_rate": 0.009345794392523364,
+     "kupiec_p": 0.7832628889911181,
+     "christoffersen_p": 0.007612730857997238,
+     "clustered_share": 0.125,
+     "episode_breaches": 9,
+     "mean_var": 0.02822114753888384
+    },
+    {
+     "method": "fhs_var",
+     "label": "Filtered historical simulation",
+     "breach_rate": 0.010514018691588784,
+     "kupiec_p": 0.8321237364457089,
+     "christoffersen_p": 0.18187520232285506,
+     "clustered_share": 0.05555555555555555,
+     "episode_breaches": 9,
+     "mean_var": 0.022101325190835946
+    }
+   ]
+  }
+ }
+}

@@ -11,6 +11,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+from _site_json import write_section
 from tabulate import tabulate
 
 from aegis.backtest import run_backtest
@@ -40,7 +41,7 @@ def main() -> None:
     ref = runs["ridge"]
     ref_loss = (ref["y"] - ref["mu"]) ** 2
 
-    rows = []
+    rows, records = [], []
     for kind in KINDS:
         v = runs[kind]
         loss = (v["y"] - v["mu"]) ** 2
@@ -50,14 +51,26 @@ def main() -> None:
             f"{np.sqrt(loss.mean()):.3f}",
             "-" if kind == "ridge" else (f"{dm.p_value:.3f}" if dm.p_value >= 0.001 else "<0.001"),
         ]
+        rec = {
+            "kind": kind,
+            "label": LABELS[kind],
+            "rmse": float(np.sqrt(loss.mean())),
+            "dm_p": None if kind == "ridge" else dm.p_value,
+        }
         for m in METHODS:
             lo, hi, y = v[f"{m}_lo"].to_numpy(), v[f"{m}_hi"].to_numpy(), v["y"].to_numpy()
+            rec[m] = {
+                "coverage": coverage(y, lo, hi),
+                "width": mean_width(lo, hi),
+                "winkler": interval_score(y, lo, hi, alpha),
+            }
             row += [
                 f"{coverage(y, lo, hi):.1%}",
                 f"{mean_width(lo, hi):.3f}",
                 f"{interval_score(y, lo, hi, alpha):.3f}",
             ]
         rows.append(row)
+        records.append(rec)
     head = ["Point model", "RMSE", "DM p vs ridge"]
     for label in METHODS.values():
         head += [f"{label} coverage", "width", "Winkler"]
@@ -84,6 +97,11 @@ coverage. Coverage should stay near the target for every model, since the confor
 care how good the forecaster is; width and Winkler show what the forecaster is worth.
 """
     )
+    write_section(
+        "point_models",
+        {"test_days": n, "first_day": str(first), "last_day": str(last), "level": 1 - alpha,
+         "rows": records},
+    )  # fmt: skip
     print(OUT.read_text())
 
 

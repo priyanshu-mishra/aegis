@@ -15,6 +15,12 @@ const base = lex[0].rmse;
 const lexWorse = lex.find((r) => r.variant.includes("lexicon")).rmse / base - 1;
 const slmWorse = slm.find((r) => r.variant.includes("ollama")).rmse / base - 1;
 const meta = load("meta");
+const ext = load("extensions");
+const pm = Object.fromEntries(ext.point_models.rows.map((r: any) => [r.kind, r]));
+const aciCover = ext.point_models.rows.map((r: any) => r.aci.coverage);
+const dmWorst = Math.max(pm.mlp.dm_p, pm.lightgbm.dm_p);
+const ew = ext.early_warning;
+const e99 = Object.fromEntries(ew.levels["0.01"].map((r: any) => [r.method, r]));
 ---
 <section class="chapter" id="risk-factors" aria-labelledby="risk-factors-h">
   <ChapterOpener n="10" title="Risk factors" minutes={3} question="What did not work, and what should you not conclude?" hid="risk-factors-h" />
@@ -49,6 +55,27 @@ const meta = load("meta");
         At 99% its breach rate is right ({pct(v99.aci_var.breach_rate, 2)}) but its breaches bunch together
         (Christoffersen p {v99.aci_var.christoffersen_p.toFixed(3)}). It learns from a miss only after it happens,
         so the first days of a shock still get through.
+      </p>
+    </li>
+    <li>
+      <h3>A more flexible forecaster did not help.</h3>
+      <p>
+        A small neural network and LightGBM both forecast volatility worse than the plain ridge regression I use
+        (error {pm.mlp.rmse.toFixed(3)} and {pm.lightgbm.rmse.toFixed(3)} against {pm.ridge.rmse.toFixed(3)}; Diebold–Mariano
+        {" "}{dmWorst < 0.001 ? "p < 0.001" : `p = ${dmWorst.toFixed(3)}`}). The adaptive intervals still covered {pct(Math.min(...aciCover))}
+        to {pct(Math.max(...aciCover))} whichever model sat underneath, which is what the conformal layer is for, but a worse forecaster
+        bought wider ranges: LightGBM's were {pct(pm.lightgbm.aci.width / pm.ridge.aci.width - 1, 0)} wider than ridge's. With about two
+        thousand noisy training days, the simple model wins.
+      </p>
+    </li>
+    <li>
+      <h3>A learned early-warning signal did not fix the clustering.</h3>
+      <p>
+        The problem is real: {e99.aci_var.episode_breaches} of the {ew.episode_days} days that open a stress episode were breaches of the
+        99% limit, {pct(e99.aci_var.episode_breaches / ew.episode_days, 0)} against a 1% target. I trained a model to see such weeks coming
+        (AUC {ew.auc_test.toFixed(2)} on the test years; 0.5 is a coin flip) and let it pick the regime for an adaptive limit. Breaches in those
+        episodes went from {e99.aci_var.episode_breaches} to {e99.aci_stress_var.episode_breaches}, and clustering did not move (Christoffersen
+        p {e99.aci_stress_var.christoffersen_p.toFixed(3)}). Sorting days by current volatility, with no learning at all, did about as well.
       </p>
     </li>
     <li>

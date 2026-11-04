@@ -1,0 +1,21 @@
+cff-version: 1.2.0
+message: "If you use Aegis, please cite it as below."
+title: "Aegis: honest error bars for portfolio risk"
+type: software
+authors:
+  - family-names: Mishra
+    given-names: Priyanshu
+repository-code: "https://github.com/priyanshu-mishra/aegis"
+url: "https://priyanshu-mishra.github.io/aegis/"
+license: MIT
+abstract: >-
+  A walk-forward study of conformal prediction for market risk. Volatility and Value-at-Risk
+  forecasts for a four-ETF portfolio are wrapped in adaptive conformal intervals and audited on
+  1,712 unseen trading days (2020-2026), against five classical baselines, with Kupiec,
+  Christoffersen, Acerbi-Szekely and Basel tests.
+keywords:
+  - conformal prediction
+  - value at risk
+  - expected shortfall
+  - volatility forecasting
+  - model validation

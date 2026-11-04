@@ -16,20 +16,22 @@ current volatility instead, so any gain from the learned signal has to beat a si
 
 ### 95% VaR (target breach rate 5%)
 
-| Method                              | Breach rate   | Kupiec p   | Christoffersen p   | Breaches followed by another within 5 days   | Breaches in first 5 days of 15 episodes   | Mean VaR   |
-|-------------------------------------|---------------|------------|--------------------|----------------------------------------------|-------------------------------------------|------------|
-| ACI, one regime                     | 4.91%         | 0.859      | 0.072              | 21%                                          | 16                                        | 1.37%      |
-| ACI by current volatility (control) | 5.02%         | 0.965      | 0.000              | 30%                                          | 16                                        | 1.38%      |
-| ACI by learned stress probability   | 4.79%         | 0.688      | 0.019              | 26%                                          | 14                                        | 1.41%      |
-| Filtered historical simulation      | 5.26%         | 0.628      | 0.001              | 30%                                          | 18                                        | 1.30%      |
+| Method                              | Breach rate   | Kupiec p   | Christoffersen p   | Followed by another breach within 5 days   | Breaches in first 5 days of 15 episodes   | Mean VaR   |
+|-------------------------------------|---------------|------------|--------------------|--------------------------------------------|-------------------------------------------|------------|
+| ACI, one regime                     | 4.91%         | 0.859      | 0.072              | 21%                                        | 16                                        | 1.37%      |
+| ACI by current volatility (control) | 5.02%         | 0.965      | 0.000              | 30%                                        | 16                                        | 1.38%      |
+| ACI by learned stress probability   | 4.79%         | 0.688      | 0.019              | 26%                                        | 14                                        | 1.41%      |
+| Filtered historical simulation      | 5.26%         | 0.628      | 0.001              | 30%                                        | 18                                        | 1.30%      |
+
 ### 99% VaR (target breach rate 1%)
 
-| Method                              | Breach rate   | Kupiec p   | Christoffersen p   | Breaches followed by another within 5 days   | Breaches in first 5 days of 15 episodes   | Mean VaR   |
-|-------------------------------------|---------------|------------|--------------------|----------------------------------------------|-------------------------------------------|------------|
-| ACI, one regime                     | 0.93%         | 0.783      | 0.008              | 12%                                          | 10                                        | 3.14%      |
-| ACI by current volatility (control) | 0.99%         | 0.977      | 0.010              | 12%                                          | 10                                        | 2.71%      |
-| ACI by learned stress probability   | 0.93%         | 0.783      | 0.008              | 12%                                          | 9                                         | 2.82%      |
-| Filtered historical simulation      | 1.05%         | 0.832      | 0.182              | 6%                                           | 9                                         | 2.21%      |
+| Method                              | Breach rate   | Kupiec p   | Christoffersen p   | Followed by another breach within 5 days   | Breaches in first 5 days of 15 episodes   | Mean VaR   |
+|-------------------------------------|---------------|------------|--------------------|--------------------------------------------|-------------------------------------------|------------|
+| ACI, one regime                     | 0.93%         | 0.783      | 0.008              | 12%                                        | 10                                        | 3.14%      |
+| ACI by current volatility (control) | 0.99%         | 0.977      | 0.010              | 12%                                        | 10                                        | 2.71%      |
+| ACI by learned stress probability   | 0.93%         | 0.783      | 0.008              | 12%                                        | 9                                         | 2.82%      |
+| Filtered historical simulation      | 1.05%         | 0.832      | 0.182              | 6%                                         | 9                                         | 2.21%      |
+
 
 *Episodes* are 15 stress onsets, defined from returns alone before any method was
 compared: the first day the 5-day RMS return exceeds twice its training-period median after 21

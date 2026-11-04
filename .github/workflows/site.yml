@@ -56,6 +56,8 @@ jobs:
           python main.py ablation -c configs/synthetic.yaml
           python main.py sensitivity -c configs/default.yaml
           python main.py export-site -c configs/default.yaml
+          python scripts/compare_point_models.py
+          python scripts/early_warning_study.py
       - name: Fall back to the committed snapshot
         if: steps.refresh.outcome != 'success'
         run: |

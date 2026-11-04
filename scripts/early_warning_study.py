@@ -12,6 +12,7 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from _site_json import write_section
 from tabulate import tabulate
 
 from aegis.backtest import run_backtest
@@ -69,16 +70,28 @@ def main() -> None:
     ]
     n_days = sum(len(w) for w in windows)
 
-    sections = []
+    sections, levels = [], {}
     for a in cfg.conformal.var_alphas:
         df = res.var[a]
         met = var_metrics(df, a)
         in_ep = df.index.isin(np.concatenate([w.to_numpy() for w in windows])) if windows else None
-        rows = []
+        rows, recs = [], []
         for m, label in METHODS.items():
             b = (df["r_next"] < df[m]).to_numpy()
             ep = int(b[in_ep].sum()) if in_ep is not None else 0
             k = met[m]
+            recs.append(
+                {
+                    "method": m,
+                    "label": label,
+                    "breach_rate": k["breach_rate"],
+                    "kupiec_p": k["kupiec_p"],
+                    "christoffersen_p": k["christoffersen_p"],
+                    "clustered_share": clustered_share(b),
+                    "episode_breaches": ep,
+                    "mean_var": k["mean_var"],
+                }
+            )
             rows.append(
                 [
                     label,
@@ -100,8 +113,20 @@ def main() -> None:
             "Mean VaR",
         ]
         table = tabulate(rows, headers=head, tablefmt="github", disable_numparse=True)
+        levels[f"{a:g}"] = recs
         sections.append(f"### {(1 - a):.0%} VaR (target breach rate {a:.0%})\n\n{table}\n")
 
+    write_section(
+        "early_warning",
+        {
+            "auc_cal": ew["auc_cal"],
+            "auc_test": ew["auc_test"],
+            "base_rate_train": ew["base_rate_train"],
+            "episodes": len(windows),
+            "episode_days": n_days,
+            "levels": levels,
+        },
+    )
     OUT.write_text(
         f"""# Early-warning study (extension B)
 

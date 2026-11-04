@@ -5,6 +5,7 @@
 <p align="center">
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/ci.yml/badge.svg"></a>
   <a href="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml"><img alt="Site" src="https://github.com/priyanshu-mishra/aegis/actions/workflows/site.yml/badge.svg"></a>
+  <a href="https://priyanshu-mishra.github.io/aegis/"><img alt="Live study" src="https://img.shields.io/badge/live%20study-updated%20nightly-c0261d"></a>
   <img alt="Python 3.11 | 3.12" src="https://img.shields.io/badge/python-3.11%20%7C%203.12-2a78d6">
   <img alt="Tests: 196 offline" src="https://img.shields.io/badge/tests-196%20offline-1baf7a">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-898781"></a>
@@ -272,9 +273,9 @@ The text layer uses **qwen2.5:3b**, a 3-billion-parameter open model, run locall
 - Every weeknight, GitHub Actions refetches prices, reruns every backtest, rebuilds and deploys the site, then audits it with Lighthouse.
 - Configs are typed and validated: a misspelled key, or an embargo shorter than the forecast horizon, fails loudly.
 
-| Latency (Apple M4 Pro, `python main.py bench`) | |
+| Latency (Apple M4 Pro, `python main.py bench`, offline synthetic market) | |
 |---|---|
-| Full walk-forward backtest, 1,301 test days, all methods and baselines | 1.0 s |
+| Full walk-forward backtest, 1,301 test days of a synthetic market, all methods and baselines | 1.0 s |
 | Score one day (forecast + conformal interval), median / 95th percentile | 0.39 / 0.56 ms |
 | Rule-based text parse, median | 0.09 ms |
 | Language-model text parse (qwen2.5:3b), median / 95th percentile | 1.8 / 1.9 s |
@@ -415,12 +416,18 @@ src/aegis/
   ablation.py · bench.py   text ablation · latency benchmark
 dashboard/app.py           Streamlit dashboard over reports/*
 site/                      the guided study (Astro + Svelte), its data contract and exported JSON
-scripts/                   README charts · lexicon reference file · Lighthouse check · site status
-docs/                      MODEL_CARD.md · PLAN.md and PLAN_v2.md (design + milestone log) · assets/
+scripts/                   README charts · extension studies · lexicon reference file · Lighthouse check
+docs/                      validation report · write-ups · extension studies · plans · assets/ (see docs/README.md)
 tests/                     196 offline tests + network and live-model tests
 ```
 
 </details>
+
+---
+
+## Cite
+
+If this is useful in your work, [`CITATION.cff`](CITATION.cff) has the reference (GitHub's "Cite this repository" button reads it). `make test`, `make demo` and `make studies` wrap the common commands.
 
 ---
 

@@ -35,6 +35,16 @@ const image = new URL("og.png", url).href;
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="The Aegis cover: findings table and the 2020 interval chart." />
     <meta name="twitter:card" content="summary_large_image" />
+    <script type="application/ld+json" set:html={JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "Article",
+      headline: title,
+      description,
+      url,
+      image,
+      author: { "@type": "Person", name: "Priyanshu Mishra", url: "https://www.linkedin.com/in/priyanshu-mishra-/" },
+      codeRepository: "https://github.com/priyanshu-mishra/aegis",
+    })} />
     <link rel="icon" href={`${base}favicon.svg`} type="image/svg+xml" />
   </head>
   <body>
